@@ -1,0 +1,26 @@
+{
+    "no_ipf": 
+    [
+        {
+            "if":
+            {
+                "age": [2, 7, 12, 17]
+            },
+            "then":
+            {
+                "income": "missing"
+            }
+        },
+        {
+            "if":
+            {
+                "age": [2, 7, 12, 17]
+            },
+            "then":
+            {
+                "maritialstatus": "missing"
+            }
+    }
+    ],
+    "ipf_forced_attributes": "missing"
+}
