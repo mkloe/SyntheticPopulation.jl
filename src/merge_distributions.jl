@@ -93,6 +93,7 @@ end
 
 
 function apply_missing_config(joint_distribution::DataFrame, missing_config::JSON3.Array{JSON3.Object, Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}})
+    joint_distribution.:id = collect(1:nrow(joint_distribution))
     attribute_names = names(joint_distribution)    
     for dictionary in missing_config
         if_column, if_values, then_column, then_values = get_config_elements(dictionary)
@@ -119,7 +120,7 @@ function apply_missing_config(joint_distribution::DataFrame, missing_config::JSO
     #return proper dataframes
     aggregated_joint_distribution.:population = convert.(Int, aggregated_joint_distribution[:, :population_sum])
     aggregated_joint_distribution = aggregated_joint_distribution[:, Not(:population_sum)]
-
+    @show aggregated_joint_distribution
     return aggregated_joint_distribution
 end
 
@@ -143,8 +144,7 @@ function generate_joint_distributions(marginal_attributes::DataFrame ...; config
         end
     end
     
-    #add ID column
-    joint_distribution.:id = collect(1:nrow(joint_distribution))
+    
 
     #set the attribute values from MISSING config file to missing
     if config_file !== nothing
@@ -159,5 +159,8 @@ function generate_joint_distributions(marginal_attributes::DataFrame ...; config
         aggregated_joint_distribution = joint_distribution
     end
     
+    #add ID column for
+    aggregated_joint_distribution.:id = collect(1:nrow(aggregated_joint_distribution))
+
     return aggregated_joint_distribution
 end

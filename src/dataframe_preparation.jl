@@ -117,7 +117,7 @@ end
 
 function merge_attributes(df1::DataFrame, df2::DataFrame; config_file::Union{String, Nothing})
     #merge the dfs with merginal attributes into 1 dataframe
-    dfs_for_ipf = get_dictionary_dfs_for_ipf(df1, df2, config_file)
+    dfs_for_ipf = get_dictionary_dfs_for_ipf(df1, df2)
 
     #add :compute_ipf column. 0 -> do not compute ipf; 1 -> compute ipf
     merged_attributes = copy(dfs_for_ipf["ipf_merged_attributes"])

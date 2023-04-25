@@ -170,30 +170,29 @@ function expand_df_from_row_counts(dataframe::DataFrame)
 end
 
 
-function assign_individuals_to_households!(individuals::DataFrame, aggregated_individuals::DataFrame, households::DataFrame, aggregated_households::DataFrame; return_unassigned::Bool = false)
+function assign_individuals_to_households!(aggregated_individuals::DataFrame, aggregated_households::DataFrame; return_unassigned::Bool = false)
     
     #prepare dataframes for processing
-    individuals_df = copy(individuals)
-    individuals_df.:population = copy(aggregated_individuals.:population)
-    aggregated_individuals_df = individuals_df
-    households_df = copy(households)
-    households_df.:population = copy(aggregated_households.:population)
-    aggregated_households_df = households_df
+    aggregated_individuals_df = copy(aggregated_individuals)
+    aggregated_households_df = copy(aggregated_households)
 
     disaggregated_households = expand_df_from_row_counts(aggregated_households_df)
     disaggregated_households.:head_id = Int.(zeros(nrow(disaggregated_households)))
     disaggregated_households.:partner_id = Int.(zeros(nrow(disaggregated_households)))
-    disaggregated_households.:child1_id = Int.(zeros(nrow(disaggregated_households)))
-    disaggregated_households.:child2_id = Int.(zeros(nrow(disaggregated_households)))
-    disaggregated_households.:child3_id = Int.(zeros(nrow(disaggregated_households)))
-
+    if maximum(disaggregated_households[:, HOUSEHOLD_SIZE_COLUMN]) > 2
+        for i in collect(1:maximum(disaggregated_households[:, HOUSEHOLD_SIZE_COLUMN]))
+            column_name = "child"*string(i-2)*"_id"
+            disaggregated_households[:, column_name] = Int.(zeros(nrow(disaggregated_households)))
+        end
+    end
+    
     #initiate values for calculating statistics
     total_household_population = sum(aggregated_households_df.:population)
     total_individual_population = sum(aggregated_individuals_df.:population)
 
     #show statistics
-    print("Total_number of individuals: ", total_individual_population, "\n")
-    print("Total_number of households: ", total_household_population, "\n")
+    print("Total number of individuals: ", total_individual_population, "\n")
+    print("Total number of households: ", total_household_population, "\n")
     print("Allocation started... \n")
 
     @showprogress for _ in 1:sum(aggregated_households_df.:population)
@@ -215,9 +214,7 @@ function assign_individuals_to_households!(individuals::DataFrame, aggregated_in
     
     #show statistics and return results
     show_statistics(aggregated_individuals_df, aggregated_households_df, total_individual_population, total_household_population)
-    aggregated_individuals_df = aggregated_individuals_df[:, [:id, :population]]
     aggregated_individuals_df = filter(:population => >(0), aggregated_individuals_df)
-    aggregated_households_df = aggregated_households_df[:, [:id, :population]]
     aggregated_households_df = filter(:population => >(0), aggregated_households_df)
 
     if return_unassigned == true
