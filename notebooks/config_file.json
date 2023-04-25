@@ -1,5 +1,5 @@
 {
-    "no_ipf": 
+    "missing_config": 
     [
         {
             "if":
@@ -22,5 +22,5 @@
             }
     }
     ],
-    "ipf_forced_attributes": "missing"
+    "forced_config": "missing"
 }
