@@ -229,5 +229,6 @@ end
 
 
 ####ideas:
+#- do not stop the function on first error (e.g. there can be still adults for single households if children are not used)
 #- parametrize filtering functions
 #- column names and variables as global variables

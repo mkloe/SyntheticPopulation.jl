@@ -161,6 +161,7 @@ function generate_joint_distributions(marginal_attributes::DataFrame ...; config
     
     #add ID column for
     aggregated_joint_distribution.:id = collect(1:nrow(aggregated_joint_distribution))
+    aggregated_joint_distribution = select(aggregated_joint_distribution, :id, :)
 
     return aggregated_joint_distribution
 end
