@@ -144,8 +144,6 @@ function generate_joint_distributions(marginal_attributes::DataFrame ...; config
         end
     end
     
-    
-
     #set the attribute values from MISSING config file to missing
     if config_file !== nothing
         config_file = read_json_file(config_file)

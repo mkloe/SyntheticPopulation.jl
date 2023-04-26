@@ -36,13 +36,6 @@ function assign_areas_to_households!(disaggregated_households::DataFrame, aggreg
 
     #filter out households that were not allocated
     disaggregated_households = filter(:individuals_allocated => ==(true), disaggregated_households)
-    total_household_population = sum(input_disaggregated_households[:, HOUSEHOLD_SIZE_COLUMN])
-
-    #calculate fractions of each area
-    total_population = sum(aggregated_areas_df.:population)
-
-    #scale the target population for each area
-    #aggregated_areas_df.:target_population = Int.(round.(aggregated_areas_df.:population ./ total_population .* total_household_population))
 
     #add lat and lon columns column to the household
     input_disaggregated_households.:lat = zeros(nrow(input_disaggregated_households))
