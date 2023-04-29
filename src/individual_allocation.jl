@@ -170,7 +170,7 @@ function expand_df_from_row_counts(dataframe::DataFrame)
 end
 
 
-function assign_individuals_to_households!(aggregated_individuals::DataFrame, aggregated_households::DataFrame; return_unassigned::Bool = false)
+function assign_individuals_to_households(aggregated_individuals::DataFrame, aggregated_households::DataFrame; return_unassigned::Bool = false)
     
     #prepare dataframes for processing
     aggregated_individuals_df = copy(aggregated_individuals)
@@ -180,7 +180,7 @@ function assign_individuals_to_households!(aggregated_individuals::DataFrame, ag
     disaggregated_households.:head_id = Int.(zeros(nrow(disaggregated_households)))
     disaggregated_households.:partner_id = Int.(zeros(nrow(disaggregated_households)))
     if maximum(disaggregated_households[:, HOUSEHOLD_SIZE_COLUMN]) > 2
-        for i in collect(1:maximum(disaggregated_households[:, HOUSEHOLD_SIZE_COLUMN]))
+        for i in collect(3:maximum(disaggregated_households[:, HOUSEHOLD_SIZE_COLUMN]))
             column_name = "child"*string(i-2)*"_id"
             disaggregated_households[:, column_name] = Int.(zeros(nrow(disaggregated_households)))
         end
