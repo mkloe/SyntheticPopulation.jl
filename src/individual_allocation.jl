@@ -26,9 +26,9 @@ function select_household_head!(aggregated_individuals::DataFrame, disaggregated
     available_heads = filter(:age => >=(MINIMUM_ADULT_AGE), available_heads)
     
     if hh_size > 1
-        available_heads = filter(:maritialstatus => ==("Married"), available_heads)
+        available_heads = filter(:maritalstatus => ==("Married"), available_heads)
     else
-        available_heads = filter(:maritialstatus => !=("Married"), available_heads)
+        available_heads = filter(:maritalstatus => !=("Married"), available_heads)
     end
     
     if hh_size > 2
@@ -61,7 +61,7 @@ function select_partner!(aggregated_individuals::DataFrame, disaggregated_househ
     #available_partners = filter(:age => <=(hh_head_age + 5), available_partners)
     #available_partners = filter(:age => >=(hh_head_age - 5), available_partners)
     available_partners = filter(:sex => !=(hh_head_sex), available_partners)
-    available_partners = filter(:maritialstatus => ==("Married"), available_partners)
+    available_partners = filter(:maritalstatus => ==("Married"), available_partners)
 
     if nrow(available_partners) == 0
         print("\n---------------\nThere are no available partners! \n---------------\n")
@@ -211,11 +211,15 @@ function assign_individuals_to_households(aggregated_individuals::DataFrame, agg
         response == 1 ? break : nothing
     end
 
-    
     #show statistics and return results
     show_statistics(aggregated_individuals_df, aggregated_households_df, total_individual_population, total_household_population)
     aggregated_individuals_df = filter(:population => >(0), aggregated_individuals_df)
     aggregated_households_df = filter(:population => >(0), aggregated_households_df)
+
+    #delete unneeded columns
+    hh_colnames = names(aggregated_households)
+    deleteat!(hh_colnames, findall(x -> (x in ["id", "population"]), hh_colnames))
+    disaggregated_households = disaggregated_households[:, Not(hh_colnames)]
 
     if return_unassigned == true
         unassigned = Dict{String, DataFrame}()

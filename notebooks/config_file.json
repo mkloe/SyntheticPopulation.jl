@@ -1,5 +1,5 @@
 {
-    "missing_config": 
+    "missing_config":
     [
         {
             "if":
@@ -8,19 +8,9 @@
             },
             "then":
             {
-                "income": "missing"
+                "maritalstatus": "missing"
             }
-        },
-        {
-            "if":
-            {
-                "age": [2, 7, 12, 17]
-            },
-            "then":
-            {
-                "maritialstatus": "missing"
-            }
-    }
+        }
     ],
     "forced_config": "missing"
 }

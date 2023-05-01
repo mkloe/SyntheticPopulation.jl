@@ -120,7 +120,7 @@ function apply_missing_config(joint_distribution::DataFrame, missing_config::JSO
     #return proper dataframes
     aggregated_joint_distribution.:population = convert.(Int, aggregated_joint_distribution[:, :population_sum])
     aggregated_joint_distribution = aggregated_joint_distribution[:, Not(:population_sum)]
-    @show aggregated_joint_distribution
+    
     return aggregated_joint_distribution
 end
 
