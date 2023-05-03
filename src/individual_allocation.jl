@@ -149,18 +149,15 @@ function allocate_household_members!(disaggregated_households::DataFrame, aggreg
     return 0
 end
 
+spread(vals,cnts) = 
+  [v for (v,c) in zip(vals, cnts) for i in 1:c]
 
 function expand_df_from_row_counts(dataframe::DataFrame)
     
     df = copy(dataframe)
     rename!(df, :id => :hh_attr_id) #can be parametrized to avoid hardcoding
 
-    @eval function Base.repeat(df_row::DataFrameRow{DataFrame, DataFrames.Index}; inner::Int64)
-        rows = repeat(DataFrame(df_row), inner)
-    end
-
-    dfs = map(x -> repeat(x; inner = x.:population), eachrow(df))
-    result = vcat(dfs..., cols=:union)
+    result = combine(df, All() .=> (x -> spread(x, df.:population)) .=> All())
     select!(result, Not([:population]))
     id = collect(1:nrow(result))
     insertcols!(result, 1, Symbol("id") => id)
