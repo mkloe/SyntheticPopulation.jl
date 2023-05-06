@@ -4,15 +4,15 @@
     #GLOBAL VARIABLES#
     ##################
     #attributes
-    HOUSEHOLD_SIZE_COLUMN = :hh_size
-    POPULATION_COLUMN = :population
-    ID_COLUMN = :id
-    AGE_COLUMN = :age
-    MARITALSTATUS_COLUMN = :maritalstatus
-    SEX_COLUMN = :sex
+    const HOUSEHOLD_SIZE_COLUMN = :hh_size
+    const POPULATION_COLUMN = :population
+    const ID_COLUMN = :id
+    const AGE_COLUMN = :age
+    const MARITALSTATUS_COLUMN = :maritalstatus
+    const SEX_COLUMN = :sex
     #values
-    MINIMUM_ADULT_AGE = 23
-    AVAILABLE_FOR_MARRIAGE = "Married"
+    const MINIMUM_ADULT_AGE = 23
+    const AVAILABLE_FOR_MARRIAGE = "Married"
 
 
     ##########
