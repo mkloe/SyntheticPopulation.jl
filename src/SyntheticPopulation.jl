@@ -1,4 +1,4 @@
-#module SyntheticPopulation
+module SyntheticPopulation
 
     ##################
     #GLOBAL VARIABLES#
@@ -26,6 +26,10 @@
     using GeoJSON
     using PolygonOps 
     using Distributions
+    using Downloads 
+    using TranscodingStreams
+    using CodecZlib
+
 
 
     #######
@@ -43,4 +47,4 @@
     ###########
     export generate_areas_dataframe, generate_joint_distributions, assign_areas_to_households!
 
-#end # module
+end # module

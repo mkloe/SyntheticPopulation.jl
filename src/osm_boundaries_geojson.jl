@@ -1,6 +1,3 @@
-using GeoJSON, Downloads, TranscodingStreams, CodecZlib
-
-
 function read_geojson_file(path::String)
     jsonbytes = read(path)
     fc = GeoJSON.read(jsonbytes)
