@@ -24,7 +24,7 @@ end
 
 
 function unique_attr_values(df::DataFrame)
-    df = select(df, Not(:population))
+    df = select(df, Not(POPULATION_COLUMN))
     df_names = names(df)
     res = Tuple{String, Vector}[]
     for column in df_names
@@ -38,8 +38,8 @@ end
 
 
 function get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
-    df1.:population = Int.(round.(df1.population))
-    df2.:population = Int.(round.(df2.population))
+    df1[:,POPULATION_COLUMN] = Int.(round.(df1[:,POPULATION_COLUMN]))
+    df2[:,POPULATION_COLUMN] = Int.(round.(df2[:,POPULATION_COLUMN]))
     df1_copy = copy(df1)
     df2_copy = copy(df2)
 
@@ -96,7 +96,7 @@ function indices_for_compute_ipf(dictionary::JSON3.Object{Vector{UInt8}, SubArra
         end
     end
     
-    return temp_df.:id
+    return temp_df[:,ID_COLUMN]
 end
 
 
@@ -125,13 +125,13 @@ function merge_attributes(df1::DataFrame, df2::DataFrame; config_file::Union{Str
         merged_attributes.:compute_ipf = Int.(ones(nrow(merged_attributes)))
     else
         #add id column
-        merged_attributes.:id = collect(1:nrow(merged_attributes))
+        merged_attributes[:,ID_COLUMN] = collect(1:nrow(merged_attributes))
         #indices set to 0
         zero_indices = get_zero_indices(config_file, merged_attributes)
         #create compute_ipf column
         merged_attributes.:compute_ipf = [(i in zero_indices) ? 0 : 1 for i in 1:nrow(merged_attributes)]
         #drop id column
-        merged_attributes = merged_attributes[:, Not(:id)]
+        merged_attributes = merged_attributes[:, Not(ID_COLUMN)]
     end
     
     dfs_for_ipf["ipf_merged_attributes"] = merged_attributes

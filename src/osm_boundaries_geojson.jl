@@ -6,7 +6,7 @@ function read_geojson_file(path::String)
     fc = GeoJSON.read(jsonbytes)
     areas = DataFrame(fc)[:,[1,6]]
     id = collect(1:nrow(areas))
-    insertcols!(areas, 1, :id => id)
+    insertcols!(areas, 1, ID_COLUMN => id)
     return areas
 end
 

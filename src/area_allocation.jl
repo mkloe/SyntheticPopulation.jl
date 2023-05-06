@@ -62,13 +62,13 @@ function assign_areas_to_households!(disaggregated_households::DataFrame, aggreg
         disaggregated_households = filter(:lon => ==(0), disaggregated_households)
         nrow(disaggregated_households) == 0 ? break : nothing
         household_row_number = sample(collect(1:nrow(disaggregated_households)))
-        household_id = disaggregated_households[household_row_number, :id]
+        household_id = disaggregated_households[household_row_number, ID_COLUMN]
 
         #select random area
-        aggregated_areas_df_filtered = filter(:population => >=(disaggregated_households[household_row_number, :hh_size]), aggregated_areas_df)
+        aggregated_areas_df_filtered = filter(POPULATION_COLUMN => >=(disaggregated_households[household_row_number, :hh_size]), aggregated_areas_df)
         nrow(aggregated_areas_df_filtered) == 0 ? break : nothing
-        area_row_number = sample(collect(1:nrow(aggregated_areas_df_filtered)), Weights(aggregated_areas_df_filtered.:population))
-        area_id = aggregated_areas_df_filtered[area_row_number, :id]
+        area_row_number = sample(collect(1:nrow(aggregated_areas_df_filtered)), Weights(aggregated_areas_df_filtered[:,POPULATION_COLUMN]))
+        area_id = aggregated_areas_df_filtered[area_row_number, ID_COLUMN]
         
         #select lon and lat within the district
         area = aggregated_areas_df_filtered[area_row_number,:]
@@ -85,7 +85,7 @@ function assign_areas_to_households!(disaggregated_households::DataFrame, aggreg
         disaggregated_households[household_row_number, :area_id] = area_id
 
         #subtract houshold size from target population for the area
-        aggregated_areas_df[area_row_number, :population] -= disaggregated_households[household_row_number, :hh_size]
+        aggregated_areas_df[area_row_number, POPULATION_COLUMN] -= disaggregated_households[household_row_number, :hh_size]
 
     end
     
@@ -94,9 +94,9 @@ function assign_areas_to_households!(disaggregated_households::DataFrame, aggreg
 
     #return data
     input_disaggregated_households = input_disaggregated_households[:, Not(:hh_size)]
-    aggregated_areas_df = filter(:population => >(1), aggregated_areas_df)
-    aggregated_areas_df = aggregated_areas_df[:, [:id, :geometry, :name, :population]]
-    aggregated_areas_df.:population = Int.(aggregated_areas_df[:, :population])
+    aggregated_areas_df = filter(POPULATION_COLUMN => >(1), aggregated_areas_df)
+    aggregated_areas_df = aggregated_areas_df[:, [ID_COLUMN, :geometry, :name, POPULATION_COLUMN]]
+    aggregated_areas_df[:,POPULATION_COLUMN] = Int.(aggregated_areas_df[:, POPULATION_COLUMN])
 
     if return_unassigned == true
         unassigned = Dict{String, DataFrame}()
