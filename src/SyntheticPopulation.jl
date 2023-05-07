@@ -1,14 +1,12 @@
 module SyntheticPopulation
 
-
     ###########
     #FUNCTIONS#
     ###########
     export generate_areas_dataframe
-    export generate_joint_distributions
+    export generate_joint_distribution
     export assign_individuals_to_households
     export assign_areas_to_households!
-
     
     ##########
     #PACKAGES#
@@ -25,7 +23,6 @@ module SyntheticPopulation
     using TranscodingStreams
     using CodecZlib
 
-
     #######
     #FILES#
     #######
@@ -35,7 +32,6 @@ module SyntheticPopulation
     include("osm_boundaries_geojson.jl")
     include("area_allocation.jl")
     
-
     ##################
     #GLOBAL VARIABLES#
     ##################

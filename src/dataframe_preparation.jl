@@ -1,8 +1,18 @@
-#Concept of setting cells in contingency tables to 0 based on:
-#Ponge, J., Enbergs, M., Schüngel, M., Hellingrath, B., Karch, A., & Ludwig, S. (2021, December). 
-#Generating synthetic populations based on german census data. In 2021 Winter Simulation Conference (WSC) (pp. 1-12). IEEE.
+#=
+Concept of setting cells in contingency tables to 0 based on:
+Ponge, J., Enbergs, M., Schüngel, M., Hellingrath, B., Karch, A., & Ludwig, S. (2021, December). 
+Generating synthetic populations based on german census data. In 2021 Winter Simulation Conference (WSC) (pp. 1-12). IEEE.
+=#
 
 
+"""
+    read_json_file(filepath::String)
+
+Auxilary function - it returns a parsed JSON file
+
+Arguments:
+- `filepath` - path to the JSON file.
+"""
 function read_json_file(filepath::String)
     json = read(filepath)
     dict = JSON3.read(json)
@@ -11,6 +21,14 @@ function read_json_file(filepath::String)
 end
 
 
+"""
+    get_config_elements(config_element::JSON3.Object{Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}})
+
+Auxilary function - it returns a single parsed element of the config
+
+Arguments:
+- `config_element` - single element of the config file
+"""
 function get_config_elements(config_element::JSON3.Object{Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}})
     if_dictionary = config_element["if"]
     then_dictionary = config_element["then"]
@@ -23,6 +41,14 @@ function get_config_elements(config_element::JSON3.Object{Vector{UInt8}, SubArra
 end
 
 
+"""
+    unique_attr_values(df::DataFrame)
+
+Auxilary function - it returns an array of tuples. Each tuple is a column name and unique values in this column.
+
+Arguments:
+- `df` - data frame, for which the array of tuples with column names and values are generated
+"""
 function unique_attr_values(df::DataFrame)
     df = select(df, Not(POPULATION_COLUMN))
     df_names = names(df)
@@ -37,6 +63,15 @@ function unique_attr_values(df::DataFrame)
 end
 
 
+"""
+    get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
+
+Auxilary function - it returns a dictionary with data frames that are used for generation of joint distribution of attributes.
+
+Arguments:
+- `df1` - first data frame that is to be merged
+- `df2` - second data frame that is to be merged
+"""
 function get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
     df1[:,POPULATION_COLUMN] = Int.(round.(df1[:,POPULATION_COLUMN]))
     df2[:,POPULATION_COLUMN] = Int.(round.(df2[:,POPULATION_COLUMN]))
@@ -75,6 +110,15 @@ function get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
 end
 
 
+"""
+    indices_for_compute_ipf(dictionary::JSON3.Object{Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}}, merged_attributes::DataFrame)
+
+Auxilary function - it returns a vector of indices of rows of the data frame that meet criteria specified by the arguments
+
+Arguments:
+- `dictionary` - parsed element of array from config JSON file that specifies FORCED config
+- `merged_attributes` - data frame, whose row indices are extracted
+"""
 function indices_for_compute_ipf(dictionary::JSON3.Object{Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}}, merged_attributes::DataFrame)
     temp_df = copy(merged_attributes)
     if_column, if_values, then_column, then_values = get_config_elements(dictionary)
@@ -100,6 +144,15 @@ function indices_for_compute_ipf(dictionary::JSON3.Object{Vector{UInt8}, SubArra
 end
 
 
+"""
+    get_zero_indices(config_file::String, merged_attributes::DataFrame)
+
+Auxilary function - it returns an array of all indices of rows of a data frame, that are specified by a config JSON file
+
+Arguments:
+- `config_file` - path of the config JSON file
+- `merged_attributes` - data frame, whose row indices are extracted
+"""
 function get_zero_indices(config_file::String, merged_attributes::DataFrame)
     config = read_json_file(config_file)
     forced_config = config["forced_config"] 
@@ -115,6 +168,16 @@ function get_zero_indices(config_file::String, merged_attributes::DataFrame)
 end
 
 
+"""
+    merge_attributes(df1::DataFrame, df2::DataFrame; config_file::Union{String, Nothing})
+
+Auxilary function - it returns all the data frames that are needed in order to generate a joint distribution of attributes of two data frames
+
+Arguments:
+- `df1` - the first data frame, that is to be merged
+- `df2` - the second data frame, that is to be merged
+- `config_file` - optional argument; path to the JSON file that specifies merging config
+"""
 function merge_attributes(df1::DataFrame, df2::DataFrame; config_file::Union{String, Nothing})
     #merge the dfs with merginal attributes into 1 dataframe
     dfs_for_ipf = get_dictionary_dfs_for_ipf(df1, df2)

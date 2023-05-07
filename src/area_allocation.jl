@@ -1,7 +1,15 @@
+"""
+    get_coordinates(geometry)
+
+Auxilary function - it returns array of coordinates that define the boundaries of a polygon.
+
+Arguments:
+- `geometry` - a Polygon or Multipolygon object
+"""
 function get_coordinates(geometry)
-    if typeof(geometry) == GeoJSON.Polygon{JSON3.Object{Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}}}
+    if typeof(geometry) == GeoJSON.Polygon{2, Float32}
         coordinates = geometry[1]
-    elseif typeof(geometry) == GeoJSON.MultiPolygon{JSON3.Object{Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}}}
+    elseif typeof(geometry) == GeoJSON.MultiPolygon{2, Float32}
         #if it is multipolygon it is okay to concatenate, because we only use these values to pick max&min lat, lon.
         coordinates = map(i -> geometry[i][1], collect(1:length(geometry)))
         coordinates = reduce(vcat, coordinates)
@@ -10,14 +18,25 @@ function get_coordinates(geometry)
 end
 
 
-function find_point_in_polygon(area::DataFrameRow, lon::Float64, lat::Float64)
-    if typeof(area.:geometry) == GeoJSON.Polygon{JSON3.Object{Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}}}
+"""
+    find_point_in_polygon(area::DataFrameRow)
+
+Auxilary function - it returns a random point in a polygon that is stored in a data frame row
+
+Arguments:
+- `area` - a data frame row that includes a column `:geometry` with Polygon or Multipolygon object
+"""
+function find_point_in_polygon(area::DataFrameRow)
+    lon = rand(Uniform(area.:min_lon, area.:max_lon))
+    lat = rand(Uniform(area.:min_lat, area.:max_lat))
+
+    if typeof(area.:geometry) == GeoJSON.Polygon{2, Float32}
         while true
             inpolygon((lon, lat), area.:geometry[1]) == 1 && return lon, lat
             lon = rand(Uniform(area.:min_lon, area.:max_lon))
             lat = rand(Uniform(area.:min_lat, area.:max_lat))
         end
-    elseif typeof(area.:geometry) == GeoJSON.MultiPolygon{JSON3.Object{Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}}}
+    elseif typeof(area.:geometry) == GeoJSON.MultiPolygon{2, Float32}
         while true
             for i in 1:length(area.:geometry)
                 inpolygon((lon, lat), area.:geometry[i][1]) == 1 && return lon, lat
@@ -29,6 +48,17 @@ function find_point_in_polygon(area::DataFrameRow, lon::Float64, lat::Float64)
 end
 
 
+"""
+    assign_areas_to_households!(disaggregated_households::DataFrame, aggregated_households::DataFrame, aggregated_areas::DataFrame; return_unassigned::Bool = false)
+
+Main function - mutates the data frame `disaggregated_households` by assigning the areas and coordinates to each household
+
+Arguments:
+- `disaggregated_households` - data frame that represents the generated population of disaggregated households. More information specified in `notebooks/dataframe_formats.ipynb`
+- `aggregated_idividuals` - data frame of aggregated individuals. More information specified in `notebooks/dataframe_formats.ipynb`
+- `aggregated_idividuals` - data frame of aggregated areas. More information specified in `notebooks/dataframe_formats.ipynb`
+- `return_unassigned` - an optional argument indicating whether the data frames with individuals and households that were not assigned should be returned.
+"""
 function assign_areas_to_households!(disaggregated_households::DataFrame, aggregated_households::DataFrame, aggregated_areas::DataFrame; return_unassigned::Bool = false)
     print("===================\nAssigning coordinates to households...\n===================\n")
     
@@ -72,9 +102,7 @@ function assign_areas_to_households!(disaggregated_households::DataFrame, aggreg
         
         #select lon and lat within the district
         area = aggregated_areas_df_filtered[area_row_number,:]
-        lon = rand(Uniform(area.:min_lon, area.:max_lon))
-        lat = rand(Uniform(area.:min_lat, area.:max_lat))
-        lon, lat = find_point_in_polygon(area, lon, lat)
+        lon, lat = find_point_in_polygon(area)
         
         #assign lat and lon
         input_disaggregated_households[household_id, :lon] = lon
@@ -95,7 +123,7 @@ function assign_areas_to_households!(disaggregated_households::DataFrame, aggreg
     #return data
     input_disaggregated_households = input_disaggregated_households[:, Not(:hh_size)]
     aggregated_areas_df = filter(POPULATION_COLUMN => >(1), aggregated_areas_df)
-    aggregated_areas_df = aggregated_areas_df[:, [ID_COLUMN, :geometry, :name, POPULATION_COLUMN]]
+    aggregated_areas_df = aggregated_areas_df[:, [ID_COLUMN, :geometry, :name_en, POPULATION_COLUMN]]
     aggregated_areas_df[:,POPULATION_COLUMN] = Int.(aggregated_areas_df[:, POPULATION_COLUMN])
 
     if return_unassigned == true

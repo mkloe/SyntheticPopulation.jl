@@ -1,12 +1,40 @@
-#Ponge, J., Enbergs, M., Schüngel, M., Hellingrath, B., Karch, A., & Ludwig, S. (2021, December). 
-#Generating synthetic populations based on german census data. In 2021 Winter Simulation Conference (WSC) (pp. 1-12). IEEE.
+#=
+Allocation of individuals into households is partially inspired by the approach from:
+Ponge, J., Enbergs, M., Schüngel, M., Hellingrath, B., Karch, A., & Ludwig, S. (2021, December). 
+Generating synthetic populations based on german census data. In 2021 Winter Simulation Conference (WSC) (pp. 1-12). IEEE.
+=#
 
+
+"""
+    show_statistics(aggregated_individuals::DataFrame, aggregated_households::DataFrame, total_individual_population::Int, total_household_population::Int)
+
+Auxilary function - it computes and prints statistics that summarize the process of allocation of individuals to households
+
+Arguments:
+- `aggregated_individuals` - the mutated data frame of individuals that aggregates all individuals that were not allocated
+- `aggregated_households` - the mutated data frame of households that aggregates all households that were not allocated
+- `total_individual_population` - total population of individuals at the beginning of allocation process
+- `total_household_population` - total population of housheolds at the beginning of allocation process
+"""
 function show_statistics(aggregated_individuals::DataFrame, aggregated_households::DataFrame, total_individual_population::Int, total_household_population::Int)
     print("Allocated " * string(round(((total_individual_population - sum(aggregated_individuals[:,POPULATION_COLUMN])) / total_individual_population) * 100)) * "% individuals.\n")
     print("Allocated " * string(round(((total_household_population - sum(aggregated_households[:,POPULATION_COLUMN])) / total_household_population) * 100)) * "% households.\n")
 end
 
 
+"""
+    update_dfs!(aggregated_idividuals::DataFrame, disaggregated_households::DataFrame, available_individuals::DataFrame, individual_index::Int, household_id::Int, individual_type::String)
+
+Auxilary function - it updates data frames of individuals and households after allocation step
+
+Arguments:
+- `aggregated_idividuals` - data frame of aggregated individuals
+- `disaggregated_households` - data frame that represents the generated population of disaggregated households
+- `available_individuals` - data frame from which ID of selected individual is to be extracted
+- `individual_index` - index of row o the selected individual in data frame `available_individuals`
+- `household_id` - ID of the household, for which the allocation of individual was made
+- `individual_type` - type of the individual that was allocated that indicates for which column the allocation is performed
+"""
 function update_dfs!(aggregated_idividuals::DataFrame, disaggregated_households::DataFrame, available_individuals::DataFrame, individual_index::Int, household_id::Int, individual_type::String)
     
     #deduct the individual from available individual pool
@@ -18,7 +46,18 @@ function update_dfs!(aggregated_idividuals::DataFrame, disaggregated_households:
 end
 
 
-function select_household_head!(aggregated_individuals::DataFrame, disaggregated_households::DataFrame, hh_size::Int, household_id::Int) #should add information about children
+"""
+    select_household_head!(aggregated_individuals::DataFrame, disaggregated_households::DataFrame, hh_size::Int, household_id::Int) 
+
+Auxilary function - it draws a household head that is allocated to household from all individuals that meet the criteria for allocation
+
+Arguments:
+- `aggregated_individuals` - data frame of aggregated individuals
+- `disaggregated_households` - data frame that represents the generated population of disaggregated households
+- `hh_size` - number of members of the houehold for which the allocation is done
+- `household_id` - ID of the household for which the allocation is done
+"""
+function select_household_head!(aggregated_individuals::DataFrame, disaggregated_households::DataFrame, hh_size::Int, household_id::Int) 
     
     #filter criteria
     available_heads = copy(aggregated_individuals)
@@ -52,6 +91,18 @@ function select_household_head!(aggregated_individuals::DataFrame, disaggregated
 end
 
 
+"""
+    select_partner!(aggregated_individuals::DataFrame, disaggregated_households::DataFrame, hh_head_sex::Union{String, Char}, hh_head_age::Int, household_id::Int)
+
+Auxilary function - it draws a household partner that is allocated to household from all individuals that meet the criteria for allocation
+
+Arguments:
+- `aggregated_individuals` - data frame of aggregated individuals
+- `disaggregated_households` - data frame that represents the generated population of disaggregated households
+- `hh_head_sex` - sex of the household head, for which the partner is allocated
+- `hh_head_age` - age of the household head, for which the partner is allocated
+- `household_id` - ID of the household for which the allocation is done
+"""
 function select_partner!(aggregated_individuals::DataFrame, disaggregated_households::DataFrame, hh_head_sex::Union{String, Char}, hh_head_age::Int, household_id::Int)
     
     #filter criteria
@@ -79,6 +130,19 @@ function select_partner!(aggregated_individuals::DataFrame, disaggregated_househ
 end
 
 
+"""
+    select_child!(aggregated_individuals::DataFrame, disaggregated_households::DataFrame, child_number::Int, hh_head_age::Int, partner_age::Int, household_id::Int)
+
+Auxilary function - it draws a household child that is allocated to household from all individuals that meet the criteria for allocation
+
+Arguments:
+- `aggregated_individuals` - data frame of aggregated individuals
+- `disaggregated_households` - data frame that represents the generated population of disaggregated households
+- `child_number` - number of the child among all children in the household, for which the allocation is done 
+- `hh_head_age` - age of the household head, for which the child is allocated
+- `partner_age` - age of the household partner, for which the child is allocated
+- `household_id` - ID of the household for which the allocation is done
+"""
 function select_child!(aggregated_individuals::DataFrame, disaggregated_households::DataFrame, child_number::Int, hh_head_age::Int, partner_age::Int, household_id::Int)
    
     #filter criteria
@@ -102,6 +166,16 @@ function select_child!(aggregated_individuals::DataFrame, disaggregated_househol
 end
 
 
+"""
+    allocate_household_members!(disaggregated_households::DataFrame, aggregated_individuals::DataFrame, hh_size::Int)
+
+Auxilary function - it mutates a dataframe disaggregated_households by allocating individuals to a randomly selected housheold
+
+Arguments:
+- `aggregated_individuals` - data frame of aggregated individuals
+- `disaggregated_households` - data frame that represents the generated population of disaggregated households
+- `hh_size` - size of the household, for which the household is done
+"""
 function allocate_household_members!(disaggregated_households::DataFrame, aggregated_individuals::DataFrame, hh_size::Int)
     
     #select household_id for which the members will be allocated
@@ -149,9 +223,25 @@ function allocate_household_members!(disaggregated_households::DataFrame, aggreg
     return 0
 end
 
-spread(vals,cnts) = 
-  [v for (v,c) in zip(vals, cnts) for i in 1:c]
 
+"""
+    spread(vals,cnts)
+
+Auxilary function - used in `expand_df_from_row_counts`
+"""
+function spread(vals,cnts) 
+    [v for (v,c) in zip(vals, cnts) for i in 1:c]
+end
+
+
+"""
+    expand_df_from_row_counts(dataframe::DataFrame)
+
+Auxilary function - it returns a data frame that repeats each row from column `POPULATION_COLUMN` n times.
+
+Arguments:
+- `dataframe` - data frame that contains at least column `POPULATION_COLUMN` with integer values.
+"""
 function expand_df_from_row_counts(dataframe::DataFrame)
     
     df = copy(dataframe)
@@ -167,6 +257,16 @@ function expand_df_from_row_counts(dataframe::DataFrame)
 end
 
 
+"""
+    assign_individuals_to_households(aggregated_individuals::DataFrame, aggregated_households::DataFrame; return_unassigned::Bool = false)
+
+Main function - it returns a disaggregated population of households, each of them characterized by a set of attributes and having individuals assigned to them.
+
+Arguments:
+- `aggregated_individuals` - a data frame of aggregated population of individuals. More information specified in `notebooks/dataframe_formats.ipynb`
+- `aggregated_households` - a data frame of aggregated population of households. More information specified in `notebooks/dataframe_formats.ipynb`
+- `return_unassigned` - an optional argument indicating whether the data frames with individuals and households that were not assigned should be returned.
+"""
 function assign_individuals_to_households(aggregated_individuals::DataFrame, aggregated_households::DataFrame; return_unassigned::Bool = false)
     
     #prepare dataframes for processing
@@ -192,7 +292,7 @@ function assign_individuals_to_households(aggregated_individuals::DataFrame, agg
     print("Total number of households: ", total_household_population, "\n")
     print("Allocation started... \n")
 
-    @showprogress for _ in 1:sum(aggregated_households_df.:population)
+    @showprogress for _ in 1:sum(aggregated_households_df[:,POPULATION_COLUMN])
 
         #select households which are still available
         aggregated_households_df = filter(POPULATION_COLUMN => >(0), aggregated_households_df)
@@ -208,7 +308,7 @@ function assign_individuals_to_households(aggregated_individuals::DataFrame, agg
         response == 1 ? break : nothing
     end
 
-    #show statistics and return results
+    #show statistics and prepare results that are to be returned
     show_statistics(aggregated_individuals_df, aggregated_households_df, total_individual_population, total_household_population)
     aggregated_individuals_df = filter(POPULATION_COLUMN => >(0), aggregated_individuals_df)
     aggregated_households_df = filter(POPULATION_COLUMN => >(0), aggregated_households_df)
@@ -229,6 +329,8 @@ function assign_individuals_to_households(aggregated_individuals::DataFrame, agg
 end
 
 
-####ideas:
-#- do not stop the function on first error (e.g. there can be still adults for single households if children are not used)
-#- parametrize filtering functions
+#=
+Ideas for further development:
+- do not stop the function on first error (e.g. there can be still adults for one-person households if children are not used)
+- parametrize filtering functions
+=#

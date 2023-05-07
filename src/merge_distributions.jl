@@ -1,7 +1,21 @@
-#Guo, J. Y., & Bhat, C. R. (2007). Population synthesis for microsimulating travel behavior. 
-#Transportation Research Record, 2014(1), 92-101.
+#=
+Algorithm for merging two data frames is inspired by:
+Guo, J. Y., & Bhat, C. R. (2007). Population synthesis for microsimulating travel behavior. 
+Transportation Research Record, 2014(1), 92-101.
+=#
 
 
+"""
+    fit_ipf(dfs_for_ipf::Dict{String, DataFrame})
+
+Auxilary function - it returns an estimated joint distribution of two data frames without common attributes by applying an IPF procedure.
+
+Arguments:
+- `dfs_for_ipf` - a dictionary with three key-value pairs:
+    - `ipf_df1` - first data frame with distribution of population by some attributes 
+    - `ipf_df2` - second data frame with distribution of population by some attributes 
+    - `ipf_merged_attributes` - data frame that contains all combinations of unique values of attributes from `ipf_df1` and `ipf_df2`
+"""
 function fit_ipf(dfs_for_ipf::Dict{String, DataFrame})
     ipf_merged_attributes = dfs_for_ipf["ipf_merged_attributes"]
     ipf_df1 = dfs_for_ipf["ipf_df1"]
@@ -41,6 +55,19 @@ function fit_ipf(dfs_for_ipf::Dict{String, DataFrame})
 end
 
 
+"""
+    get_dfs_for_ipf_slice(dfs_for_ipf::Dict{String, DataFrame}, unique_value::Any, column::Union{String, Symbol})
+
+Auxilary function - it returns filtered data frames given filtering config. 
+
+Arguments:
+- `dfs_for_ipf` - a dictionary with three key-value pairs:
+    - `ipf_df1` - first data frame with distribution of population by some attributes 
+    - `ipf_df2` - second data frame with distribution of population by some attributes 
+    - `ipf_merged_attributes` - data frame that contains all combinations of unique values of attributes from `ipf_df1` and `ipf_df2`
+- `column` - a column of the data frames, on which the filtering is done
+- `unique_value` - a value, for which the filtering is done
+"""
 function get_dfs_for_ipf_slice(dfs_for_ipf::Dict{String, DataFrame}, unique_value::Any, column::Union{String, Symbol})    
     dfs_for_ipf_slice = Dict{String, DataFrame}()
     ipf_merged_attributes = copy(dfs_for_ipf["ipf_merged_attributes"])
@@ -59,6 +86,18 @@ function get_dfs_for_ipf_slice(dfs_for_ipf::Dict{String, DataFrame}, unique_valu
 end 
 
 
+"""
+    compute_joint_distributions(dfs_for_ipf::Dict{String, DataFrame}; shared_columns::Vector{String} = String[])
+
+Auxilary function - it returns an estimated joint distribution of two data frames.
+
+Arguments:
+- `dfs_for_ipf` - a dictionary with three key-value pairs:
+    - `ipf_df1` - first data frame with distribution of population by some attributes 
+    - `ipf_df2` - second data frame with distribution of population by some attributes 
+    - `ipf_merged_attributes` - data frame that contains all combinations of unique values of attributes from `ipf_df1` and `ipf_df2`
+- `shared_columns` - an optional argument used when the function is called recursively.
+"""
 function compute_joint_distributions(dfs_for_ipf::Dict{String, DataFrame}; shared_columns::Vector{String} = String[])
     ipf_df1 = copy(dfs_for_ipf["ipf_df1"])
     ipf_df2 = copy(dfs_for_ipf["ipf_df2"])
@@ -92,6 +131,15 @@ function compute_joint_distributions(dfs_for_ipf::Dict{String, DataFrame}; share
 end
 
 
+"""
+    apply_missing_config(joint_distribution::DataFrame, missing_config::JSON3.Array{JSON3.Object, Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}})
+
+Auxilary function - it applies the configuration of type MISSING that is specified in the config JSON file. More information on how the config works is specified in `notebooks/config_tutorial.ipynb`.
+
+Arguments:
+- `joint_distribution` - a data frame with aggregated generated population.
+- `missing_config` - configuration of type MISSING parsed from the config JSON file.
+"""
 function apply_missing_config(joint_distribution::DataFrame, missing_config::JSON3.Array{JSON3.Object, Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}})
     joint_distribution[:,ID_COLUMN] = collect(1:nrow(joint_distribution))
     attribute_names = names(joint_distribution)    
@@ -125,20 +173,29 @@ function apply_missing_config(joint_distribution::DataFrame, missing_config::JSO
 end
 
 
-function generate_joint_distributions(marginal_attributes::DataFrame ...; config_file::Union{Nothing, String} = nothing)
+"""
+    generate_joint_distribution(marginal_distributions::DataFrame ...; config_file::Union{Nothing, String} = nothing)
 
-    for dataframe in marginal_attributes
+Main function - it returns a data frame with distribution of population with respect to all attributes from input data frames.
+
+Arguments:
+- `marginal_distributions` - an array of data frames. Each data frame contains distribution of population with respect to given attributes. Detailed description of the format in `notebooks/dataframe_formats.ipynb`.
+- `config_file` - optional argument; config JSON file specifying the configuration of the algorithm. Usage guide in `notebooks/config_tutorial.ipynb`.
+"""
+function generate_joint_distribution(marginal_distributions::DataFrame ...; config_file::Union{Nothing, String} = nothing)
+
+    for dataframe in marginal_distributions
         sort!(dataframe, reverse(deleteat!(names(dataframe), findall(x -> String(x) == string(POPULATION_COLUMN), names(dataframe)))))
     end
 
-    if length(marginal_attributes) == 1
-        joint_distribution = marginal_attributes[1]
+    if length(marginal_distributions) == 1
+        joint_distribution = marginal_distributions[1]
         joint_distribution[:,POPULATION_COLUMN] = Int.(round.(joint_distribution[:,POPULATION_COLUMN]))
         joint_distribution[:,ID_COLUMN] = collect(1:nrow(joint_distribution))
     else
-        joint_distribution = marginal_attributes[1]
-        for i in 2:(length(marginal_attributes))
-            dfs_for_ipf = merge_attributes(joint_distribution, marginal_attributes[i]; config_file = config_file)
+        joint_distribution = marginal_distributions[1]
+        for i in 2:(length(marginal_distributions))
+            dfs_for_ipf = merge_attributes(joint_distribution, marginal_distributions[i]; config_file = config_file)
             joint_distribution = compute_joint_distributions(dfs_for_ipf)
             sort!(joint_distribution, reverse(deleteat!(names(joint_distribution), findall(x -> String(x) == string(POPULATION_COLUMN), names(joint_distribution)))))
         end
