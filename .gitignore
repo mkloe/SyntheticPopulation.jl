@@ -1,1 +1,4 @@
 test.jl
+.ipynb_checkpoints
+.vscode
+.DS_Store
