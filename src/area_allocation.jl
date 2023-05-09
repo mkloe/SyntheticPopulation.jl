@@ -21,7 +21,7 @@ end
 """
     find_point_in_polygon(area::DataFrameRow)
 
-Auxilary function - it returns a random point in a polygon that is stored in a data frame row
+Auxilary function - it returns a random point in a polygon that is stored in a data frame row.
 
 Arguments:
 - `area` - a data frame row that includes a column `:geometry` with Polygon or Multipolygon object
@@ -51,7 +51,7 @@ end
 """
     assign_areas_to_households!(disaggregated_households::DataFrame, aggregated_households::DataFrame, aggregated_areas::DataFrame; return_unassigned::Bool = false)
 
-Main function - mutates the data frame `disaggregated_households` by assigning the areas and coordinates to each household
+Main function - mutates the data frame `disaggregated_households` by assigning the areas and coordinates to each household.
 
 Arguments:
 - `disaggregated_households` - data frame that represents the generated population of disaggregated households. More information specified in `notebooks/dataframe_formats.ipynb`

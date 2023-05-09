@@ -8,7 +8,7 @@ Generating synthetic populations based on german census data. In 2021 Winter Sim
 """
     show_statistics(aggregated_individuals::DataFrame, aggregated_households::DataFrame, total_individual_population::Int, total_household_population::Int)
 
-Auxilary function - it computes and prints statistics that summarize the process of allocation of individuals to households
+Auxilary function - it computes and prints statistics that summarize the process of allocation of individuals to households.
 
 Arguments:
 - `aggregated_individuals` - the mutated data frame of individuals that aggregates all individuals that were not allocated
@@ -25,13 +25,13 @@ end
 """
     update_dfs!(aggregated_idividuals::DataFrame, disaggregated_households::DataFrame, available_individuals::DataFrame, individual_index::Int, household_id::Int, individual_type::String)
 
-Auxilary function - it updates data frames of individuals and households after allocation step
+Auxilary function - it updates data frames of individuals and households after allocation step.
 
 Arguments:
 - `aggregated_idividuals` - data frame of aggregated individuals
 - `disaggregated_households` - data frame that represents the generated population of disaggregated households
 - `available_individuals` - data frame from which ID of selected individual is to be extracted
-- `individual_index` - index of row o the selected individual in data frame `available_individuals`
+- `individual_index` - index of row of the selected individual in data frame `available_individuals`
 - `household_id` - ID of the household, for which the allocation of individual was made
 - `individual_type` - type of the individual that was allocated that indicates for which column the allocation is performed
 """
@@ -49,7 +49,7 @@ end
 """
     select_household_head!(aggregated_individuals::DataFrame, disaggregated_households::DataFrame, hh_size::Int, household_id::Int) 
 
-Auxilary function - it draws a household head that is allocated to household from all individuals that meet the criteria for allocation
+Auxilary function - it draws a household head that is allocated to household from all individuals that meet the criteria for allocation.
 
 Arguments:
 - `aggregated_individuals` - data frame of aggregated individuals
@@ -94,7 +94,7 @@ end
 """
     select_partner!(aggregated_individuals::DataFrame, disaggregated_households::DataFrame, hh_head_sex::Union{String, Char}, hh_head_age::Int, household_id::Int)
 
-Auxilary function - it draws a household partner that is allocated to household from all individuals that meet the criteria for allocation
+Auxilary function - it draws a household partner that is allocated to household from all individuals that meet the criteria for allocation.
 
 Arguments:
 - `aggregated_individuals` - data frame of aggregated individuals
@@ -133,7 +133,7 @@ end
 """
     select_child!(aggregated_individuals::DataFrame, disaggregated_households::DataFrame, child_number::Int, hh_head_age::Int, partner_age::Int, household_id::Int)
 
-Auxilary function - it draws a household child that is allocated to household from all individuals that meet the criteria for allocation
+Auxilary function - it draws a household child that is allocated to household from all individuals that meet the criteria for allocation.
 
 Arguments:
 - `aggregated_individuals` - data frame of aggregated individuals
@@ -169,12 +169,12 @@ end
 """
     allocate_household_members!(disaggregated_households::DataFrame, aggregated_individuals::DataFrame, hh_size::Int)
 
-Auxilary function - it mutates a dataframe disaggregated_households by allocating individuals to a randomly selected housheold
+Auxilary function - it mutates a dataframe disaggregated_households by allocating individuals to a randomly selected housheold.
 
 Arguments:
 - `aggregated_individuals` - data frame of aggregated individuals
 - `disaggregated_households` - data frame that represents the generated population of disaggregated households
-- `hh_size` - size of the household, for which the household is done
+- `hh_size` - size of the household, for which the alocation is done
 """
 function allocate_household_members!(disaggregated_households::DataFrame, aggregated_individuals::DataFrame, hh_size::Int)
     

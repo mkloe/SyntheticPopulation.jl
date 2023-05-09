@@ -24,7 +24,7 @@ end
 """
     get_config_elements(config_element::JSON3.Object{Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}})
 
-Auxilary function - it returns a single parsed element of the config
+Auxilary function - it returns a single parsed element of the config.
 
 Arguments:
 - `config_element` - single element of the config file
@@ -47,7 +47,7 @@ end
 Auxilary function - it returns an array of tuples. Each tuple is a column name and unique values in this column.
 
 Arguments:
-- `df` - data frame, for which the array of tuples with column names and values are generated
+- `df` - data frame, for which the array of tuples with column names and values are generated.
 """
 function unique_attr_values(df::DataFrame)
     df = select(df, Not(POPULATION_COLUMN))
@@ -113,11 +113,11 @@ end
 """
     indices_for_compute_ipf(dictionary::JSON3.Object{Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}}, merged_attributes::DataFrame)
 
-Auxilary function - it returns a vector of indices of rows of the data frame that meet criteria specified by the arguments
+Auxilary function - it returns a vector of indices of rows of the data frame that meet criteria specified by single config element from the `dictionary` argument.
 
 Arguments:
-- `dictionary` - parsed element of array from config JSON file that specifies FORCED config
-- `merged_attributes` - data frame, whose row indices are extracted
+- `dictionary` - parsed element of array from config JSON file that specifies FORCED config. More information in `notebooks/config_tutorial.ipynb`.
+- `merged_attributes` - data frame, whose row indices are extracted.
 """
 function indices_for_compute_ipf(dictionary::JSON3.Object{Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}}, merged_attributes::DataFrame)
     temp_df = copy(merged_attributes)
@@ -147,11 +147,11 @@ end
 """
     get_zero_indices(config_file::String, merged_attributes::DataFrame)
 
-Auxilary function - it returns an array of all indices of rows of a data frame, that are specified by a config JSON file
+Auxilary function - it returns an array of all indices of rows of a data frame, that are specified by all config elements from the config JSON file.
 
 Arguments:
-- `config_file` - path of the config JSON file
-- `merged_attributes` - data frame, whose row indices are extracted
+- `config_file` - path of the config JSON file. More information about config file in `notebooks/config_tutorial.ipynb`.
+- `merged_attributes` - data frame, whose row indices are extracted.
 """
 function get_zero_indices(config_file::String, merged_attributes::DataFrame)
     config = read_json_file(config_file)
@@ -171,7 +171,7 @@ end
 """
     merge_attributes(df1::DataFrame, df2::DataFrame; config_file::Union{String, Nothing})
 
-Auxilary function - it returns all the data frames that are needed in order to generate a joint distribution of attributes of two data frames
+Auxilary function - it returns a dictionary with all the data frames that are needed in order to generate a joint distribution of attributes of two data frames.
 
 Arguments:
 - `df1` - the first data frame, that is to be merged

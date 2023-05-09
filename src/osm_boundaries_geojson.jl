@@ -1,7 +1,7 @@
 """
     read_geojson_file(path::String)
 
-Auxilary function - it reads the GeoJSON file fand returns the data in data frame format.
+Auxilary function - it reads the GeoJSON file and returns the data in data frame format.
 
 Arguments:
 - `path` - path to the GeoJSON file.
@@ -23,7 +23,7 @@ end
 Auxilary function - downloads a GeoJSON file with boundaries and returns its filepath.
 
 Arguments:
-- `url` - URL from which the file is downloaded
+- `url` - URL generated from https://osm-boundaries.com/ 
 - `target_filepath` - target path of the downloaded file
 """
 function download_osm_boundaries(url::String, target_filepath::String = pwd())
@@ -52,17 +52,30 @@ end
 
 
 """
-    generate_areas_dataframe(url::String, target_filepath::String = pwd())
+    generate_areas_dataframe_from_url(url::String, target_filepath::String = pwd())
 
-Main function - it returns a generated data frame with areas and its attributes
+Main function - it returns a generated data frame with areas and its attributes given a URL address.
 
 Arguments:
 - `url` - the URL with selected areas generated from https://osm-boundaries.com/
 - `target_filepath` - target path of the downloaded file
 """
-function generate_areas_dataframe(url::String, target_filepath::String = pwd())
+function generate_areas_dataframe_from_url(url::String, target_filepath::String = pwd())
     filepath = download_osm_boundaries(url, target_filepath)
     areas = read_geojson_file(filepath)
     rm(filepath)
+    return areas
+end
+
+"""
+    generate_areas_dataframe_from_file(filepath::String)
+
+Main function - it returns a generated data frame with areas and its attributes given a file path.
+
+Arguments:
+- `filepath` - path to the file in .geojson format
+"""
+function generate_areas_dataframe_from_file(filepath::String)
+    areas = read_geojson_file(filepath)
     return areas
 end

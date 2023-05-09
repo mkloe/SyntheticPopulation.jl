@@ -3,10 +3,12 @@ module SyntheticPopulation
     ###########
     #FUNCTIONS#
     ###########
-    export generate_areas_dataframe
+    export generate_areas_dataframe_from_url
+    export generate_areas_dataframe_from_file
     export generate_joint_distribution
     export assign_individuals_to_households
     export assign_areas_to_households!
+    
     
     ##########
     #PACKAGES#

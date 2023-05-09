@@ -12,7 +12,8 @@ Downloading and parsing data about boundaries of areas
 ```@docs
 read_geojson_file(path::String)
 download_osm_boundaries(url::String, target_filepath::String = pwd())
-generate_areas_dataframe(url::String, target_filepath::String = pwd())
+generate_areas_dataframe_from_url(url::String, target_filepath::String = pwd())
+generate_areas_dataframe_from_file(filepath::String)
 ```
 
 
