@@ -6,7 +6,7 @@ Transportation Research Record, 2014(1), 92-101.
 
 
 """
-    fit_ipf(dfs_for_ipf::Dict{String, DataFrame})
+    fit_ipf(dfs_for_ipf::Dict{String, DataFrame}; ipf_population::String)
 
 Auxilary function - it returns an estimated joint distribution of two data frames without common attributes by applying an IPF procedure.
 
@@ -15,8 +15,9 @@ Arguments:
     - `ipf_df1` - first data frame with distribution of population by some attributes 
     - `ipf_df2` - second data frame with distribution of population by some attributes 
     - `ipf_merged_attributes` - data frame that contains all combinations of unique values of attributes from `ipf_df1` and `ipf_df2`
+- `ipf_population` - argument defining what will be the total population used in the computation performed by IPF algoriithm
 """
-function fit_ipf(dfs_for_ipf::Dict{String, DataFrame})
+function fit_ipf(dfs_for_ipf::Dict{String, DataFrame}; ipf_population::String)
     ipf_merged_attributes = dfs_for_ipf["ipf_merged_attributes"]
     ipf_df1 = dfs_for_ipf["ipf_df1"]
     ipf_df2 = dfs_for_ipf["ipf_df2"]
@@ -32,6 +33,11 @@ function fit_ipf(dfs_for_ipf::Dict{String, DataFrame})
     if population_size_difference == 0
         fac = ipf(input_sample, input_marginals)
         Z = Array(fac) .* input_sample
+        if isnan(Z[1]) #error handling
+            input_sample = input_sample .+ 0.00000000000000000001
+            fac = ipf(input_sample, input_marginals)
+            Z = Array(fac) .* input_sample
+        end
         Z = Int.(round.(Z))
     else 
         af = ipf(input_sample, ArrayMargins(input_marginals))
@@ -41,7 +47,11 @@ function fit_ipf(dfs_for_ipf::Dict{String, DataFrame})
         end
         X_prop = input_sample ./ sum(input_sample)
         Z = X_prop .* Array(af)
-        population_size = max(sum(ipf_df1[:,POPULATION_COLUMN]), sum(ipf_df2[:,POPULATION_COLUMN]))
+        if ipf_population == "max"
+            population_size = max(sum(ipf_df1[:,POPULATION_COLUMN]), sum(ipf_df2[:,POPULATION_COLUMN]))
+        elseif ipf_population == "min"
+            population_size = min(sum(ipf_df1[:,POPULATION_COLUMN]), sum(ipf_df2[:,POPULATION_COLUMN]))
+        end
         Z = population_size .* Z
         Z = Int.(round.(Z))
     end
@@ -87,7 +97,7 @@ end
 
 
 """
-    compute_joint_distributions(dfs_for_ipf::Dict{String, DataFrame}; shared_columns::Vector{String} = String[])
+    compute_joint_distributions(dfs_for_ipf::Dict{String, DataFrame}; ipf_population::String, shared_columns::Vector{String} = String[])
 
 Auxilary function - it returns an estimated joint distribution of two data frames.
 
@@ -96,37 +106,54 @@ Arguments:
     - `ipf_df1` - first data frame with distribution of population by some attributes 
     - `ipf_df2` - second data frame with distribution of population by some attributes 
     - `ipf_merged_attributes` - data frame that contains all combinations of unique values of attributes from `ipf_df1` and `ipf_df2`
+- `ipf_population` - argument defining what will be the total population used for computation in the IPF algorithm that is called within this function.
 - `shared_columns` - an optional argument used when the function is called recursively.
 """
-function compute_joint_distributions(dfs_for_ipf::Dict{String, DataFrame}; shared_columns::Vector{String} = String[])
+function compute_joint_distributions(dfs_for_ipf::Dict{String, DataFrame}; ipf_population::String, shared_columns::Vector{String} = String[])
     ipf_df1 = copy(dfs_for_ipf["ipf_df1"])
     ipf_df2 = copy(dfs_for_ipf["ipf_df2"])
-    intersecting_columns = names(ipf_df2)[findall(in(names(ipf_df1)), names(ipf_df2))]
-    deleteat!(intersecting_columns, findall(x -> x == string(POPULATION_COLUMN), intersecting_columns))
-    intersecting_columns = setdiff(intersecting_columns, shared_columns)
-    
-    if length(intersecting_columns) == 0
-        return fit_ipf(dfs_for_ipf)
+    ipf_merged_attributes = copy(dfs_for_ipf["ipf_merged_attributes"])
+
+    if nrow(ipf_df1) == 0 && nrow(ipf_df2) == nrow(ipf_merged_attributes)
+        sort!(ipf_df2, reverse(deleteat!(names(ipf_df2), findall(x -> String(x) == string(POPULATION_COLUMN), names(ipf_df2)))))
+        sort!(ipf_merged_attributes, reverse(deleteat!(names(ipf_merged_attributes), findall(x -> String(x) == string(POPULATION_COLUMN), names(ipf_merged_attributes)))))
+        ipf_merged_attributes[:, POPULATION_COLUMN] = ipf_df2[:,POPULATION_COLUMN]
+        return ipf_merged_attributes
+
+    elseif nrow(ipf_df2) == 0 && nrow(ipf_df1) == nrow(ipf_merged_attributes)
+        sort!(ipf_df1, reverse(deleteat!(names(ipf_df1), findall(x -> String(x) == string(POPULATION_COLUMN), names(ipf_df1)))))
+        sort!(ipf_merged_attributes, reverse(deleteat!(names(ipf_merged_attributes), findall(x -> String(x) == string(POPULATION_COLUMN), names(ipf_merged_attributes)))))
+        ipf_merged_attributes[:, POPULATION_COLUMN] = ipf_df1[:,POPULATION_COLUMN]
+        return ipf_merged_attributes
 
     else 
-        attributes = copy(shared_columns)
-        push!(attributes, intersecting_columns[1])
-        unique_values_of_attribute = unique(ipf_df1[:, intersecting_columns[1]])
+        intersecting_columns = names(ipf_df2)[findall(in(names(ipf_df1)), names(ipf_df2))]
+        deleteat!(intersecting_columns, findall(x -> x == string(POPULATION_COLUMN), intersecting_columns))
+        intersecting_columns = setdiff(intersecting_columns, shared_columns)
         
-        if length(unique_values_of_attribute) == 1
-            return fit_ipf(dfs_for_ipf)
-        end
+        if length(intersecting_columns) == 0
+            return fit_ipf(dfs_for_ipf, ipf_population = ipf_population)
 
-        df_list = DataFrame[]
-        for unique_value in unique_values_of_attribute
-            dfs_for_ipf_slice = copy(dfs_for_ipf)
-            dfs_for_ipf_slice = get_dfs_for_ipf_slice(dfs_for_ipf_slice, unique_value, intersecting_columns[1])        
-            joint_distribution = compute_joint_distributions(dfs_for_ipf_slice; shared_columns = attributes)
-    
-            push!(df_list, joint_distribution)
-        end
+        else 
+            attributes = copy(shared_columns)
+            push!(attributes, intersecting_columns[1])
+            unique_values_of_attribute = unique(ipf_df1[:, intersecting_columns[1]])
+            
+            if length(unique_values_of_attribute) == 1
+                return fit_ipf(dfs_for_ipf, ipf_population = ipf_population)
+            end
+
+            df_list = DataFrame[]
+            for unique_value in unique_values_of_attribute
+                dfs_for_ipf_slice = copy(dfs_for_ipf)
+                dfs_for_ipf_slice = get_dfs_for_ipf_slice(dfs_for_ipf_slice, unique_value, intersecting_columns[1])        
+                joint_distribution = compute_joint_distributions(dfs_for_ipf_slice; ipf_population = ipf_population, shared_columns = attributes)
         
-        return reduce(vcat, df_list)
+                push!(df_list, joint_distribution)
+            end
+            
+            return reduce(vcat, df_list)
+        end
     end
 end
 
@@ -195,9 +222,21 @@ function generate_joint_distribution(marginal_distributions::DataFrame ...; conf
     else
         joint_distribution = marginal_distributions[1]
         for i in 2:(length(marginal_distributions))
-            dfs_for_ipf = merge_attributes(joint_distribution, marginal_distributions[i]; config_file = config_file)
-            joint_distribution = compute_joint_distributions(dfs_for_ipf)
-            sort!(joint_distribution, reverse(deleteat!(names(joint_distribution), findall(x -> String(x) == string(POPULATION_COLUMN), names(joint_distribution)))))
+            dfs_dict = merge_attributes(joint_distribution, marginal_distributions[i]; config_file = config_file)
+            
+            if haskey(dfs_dict, "dfs_missing_config")
+                joint_distribution = compute_joint_distributions(dfs_dict["dfs_for_ipf"], ipf_population = "min")
+                joint_distribution_missing_config = compute_joint_distributions(dfs_dict["dfs_missing_config"], ipf_population = "min")
+                sort!(joint_distribution, reverse(deleteat!(names(joint_distribution), findall(x -> String(x) == string(POPULATION_COLUMN), names(joint_distribution)))))
+                sort!(joint_distribution_missing_config, reverse(deleteat!(names(joint_distribution_missing_config), findall(x -> String(x) == string(POPULATION_COLUMN), names(joint_distribution_missing_config)))))
+                
+                joint_distribution = vcat(joint_distribution, joint_distribution_missing_config)
+                sort!(joint_distribution, reverse(deleteat!(names(joint_distribution), findall(x -> String(x) == string(POPULATION_COLUMN), names(joint_distribution)))))
+            
+            else 
+                joint_distribution = compute_joint_distributions(dfs_dict["dfs_for_ipf"], ipf_population = "max")
+                sort!(joint_distribution, reverse(deleteat!(names(joint_distribution), findall(x -> String(x) == string(POPULATION_COLUMN), names(joint_distribution)))))
+            end
         end
     end
 

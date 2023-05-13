@@ -3,7 +3,7 @@ include("utils.jl")
 using .SyntheticPopulation
 using DataFrames
 using StatsBase
-SIZE = 300000
+SIZE = 1000
 OLD_ADULTS = 0.6
 YOUNG_ADULTS = 0.2
 CHILDREN = 0.2

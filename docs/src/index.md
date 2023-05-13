@@ -26,6 +26,8 @@ unique_attr_values(df::DataFrame)
 get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
 indices_for_compute_ipf(dictionary::JSON3.Object{Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}}, merged_attributes::DataFrame)
 get_zero_indices(config_file::String, merged_attributes::DataFrame)
+get_dfs_slices(dfs_for_ipf::Dict{String, DataFrame}, missing_config::JSON3.Array{JSON3.Object, Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}})
+filter_dfs_for_ipf_by_missing_config(dfs_for_ipf::Dict{String, DataFrame}, config_file::Union{String, Nothing})
 merge_attributes(df1::DataFrame, df2::DataFrame; config_file::Union{String, Nothing})
 ```
 
@@ -33,9 +35,9 @@ merge_attributes(df1::DataFrame, df2::DataFrame; config_file::Union{String, Noth
 Merging multiple data frames to generate a joint distribution
 -----------------
 ```@docs
-fit_ipf(dfs_for_ipf::Dict{String, DataFrame})
+fit_ipf(dfs_for_ipf::Dict{String, DataFrame}; ipf_population::String)
 get_dfs_for_ipf_slice(dfs_for_ipf::Dict{String, DataFrame}, unique_value::Any, column::Union{String, Symbol})
-compute_joint_distributions(dfs_for_ipf::Dict{String, DataFrame}; shared_columns::Vector{String} = String[])
+compute_joint_distributions(dfs_for_ipf::Dict{String, DataFrame}; ipf_population::String, shared_columns::Vector{String} = String[])
 apply_missing_config(joint_distribution::DataFrame, missing_config::JSON3.Array{JSON3.Object, Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}})
 generate_joint_distribution(marginal_distributions::DataFrame ...; config_file::Union{Nothing, String} = nothing)
 ```

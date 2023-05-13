@@ -6,7 +6,7 @@ function validate_table(estimated_df, target_df)
     #prepare data frames for computation
     sort!(estimated_df)
     sort!(target_df)
-    rename!(estimated_df, :population => :estimated_population)
+    estimated_df = rename(estimated_df, :population => :estimated_population)
     attribute_names = Symbol.(intersect(names(estimated_df), names(target_df)))
     target_df = leftjoin(target_df, estimated_df, on = attribute_names, matchmissing = :equal)
     #replace missing with zeroes
@@ -27,9 +27,9 @@ function validate_table(estimated_df, target_df)
     wfv_090 = count(i -> (-1.645<i<1.645), target_df.Z_score) / nrow(target_df)
     print("=================\n")
     print("=Cell statistics=\n")
-    print("=================\n\n")
+    print("=================\n")
     print("Percentage of well fitting values at 0.95 confidence interval: ", wfv_095, "\n")
-    print("Percentage of well fitting values at 0.90 confidence interval: ", wfv_090, "\n\n\n")
+    print("Percentage of well fitting values at 0.90 confidence interval: ", wfv_090, "\n\n")
 
     #assess whole table
     degrees_of_freedom = nrow(target_df)
@@ -40,16 +40,16 @@ function validate_table(estimated_df, target_df)
 
     print("==================\n")
     print("=Table statistics=\n")
-    print("==================\n\n")
+    print("==================\n")
     if (cv < critical_value_090)
         print("Statistic value equals: ", cv, "\n")
-        print("Table is well fitting at 0.9 and 0.95 confidence interval.\n")
+        print("Table is well fitting at 0.9 and 0.95 confidence interval.\n\n")
     elseif (critical_value_090 < cv < critical_value_095)
         print("Statistic value equals: ", cv, "\n")
-        print("Table is well fitting at 0.95 but not well fitting at 0.90 confidence interval."\n)
+        print("Table is well fitting at 0.95 but not well fitting at 0.90 confidence interval.\n\n")
     else 
         print("Statistic value equals: ", cv, "\n")
-        print("Table is not well fitting.\n")
+        print("Table is not well fitting.\n\n")
     end
     
     return target_df
@@ -57,6 +57,7 @@ end
 
 
 function compute_marginals(estimated_df)
+    estimated_df = rename(estimated_df, :population => :estimated_population)
     #Population by age and sex
     age_sex = combine(groupby(estimated_df, [:AGE, :SEX], sort=true), :estimated_population => sum); 
     sort!(estimated_df, [:SEX, :AGE])
