@@ -1,0 +1,16 @@
+{
+    "missing_config": "missing",
+    "forced_config": 
+    [
+        {
+            "if":
+            {
+                "AGE": [20, 25]
+            },
+            "then":
+            {
+                "INCOME": [40000, 50000]
+            }
+        }
+    ]
+}

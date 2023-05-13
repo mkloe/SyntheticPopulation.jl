@@ -200,7 +200,7 @@ function generate_joint_distribution(marginal_distributions::DataFrame ...; conf
             sort!(joint_distribution, reverse(deleteat!(names(joint_distribution), findall(x -> String(x) == string(POPULATION_COLUMN), names(joint_distribution)))))
         end
     end
-    
+
     #set the attribute values from MISSING config file to missing
     if config_file !== nothing
         config_file = read_json_file(config_file)
