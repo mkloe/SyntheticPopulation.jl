@@ -1,3 +1,9 @@
+name = "SyntheticPopulation"
+uuid = "1307e91d-8556-4ff5-8573-56992218c030"
+authors = ["Marcin Zurek <mz.mzurek@gmail.com>"]
+version = "0.1.0"
+
+
 [deps]
 CodecZlib = "944b1d66-785c-5afd-91f1-9de20f533193"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
