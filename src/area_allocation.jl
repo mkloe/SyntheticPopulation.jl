@@ -7,9 +7,9 @@ Arguments:
 - `geometry` - a Polygon or Multipolygon object
 """
 function get_coordinates(geometry)
-    if typeof(geometry) == GeoJSON.Polygon{JSON3.Object{Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}}}
+    if typeof(geometry) == GeoJSON.Polygon{2, Float32}
         coordinates = geometry[1]
-    elseif typeof(geometry) == GeoJSON.MultiPolygon{JSON3.Object{Vector{UInt8}, SubArray{UInt64, 1, Vector{UInt64}, Tuple{UnitRange{Int64}}, true}}}
+    elseif typeof(geometry) == GeoJSON.MultiPolygon{2, Float32}
         #if it is multipolygon it is okay to concatenate, because we only use these values to pick max&min lat, lon.
         coordinates = map(i -> geometry[i][1], collect(1:length(geometry)))
         coordinates = reduce(vcat, coordinates)
