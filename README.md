@@ -8,7 +8,7 @@ Pkg.add(url = "https://github.com/mkloe/SyntheticPopulation.jl")
 
 ## Usage guide:
 The synthetic population can be generated following the process visualized below:
-![Population generation process](docs/Process.png)
+![Population generation process](docs/generation_process.png)
 The exact steps for preparation and formatting of input data and functions called along the process should be referenced from `/tutorial_notebooks/beijing_tutorial.ipynb`.
 
 ## Other useful information
