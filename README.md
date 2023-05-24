@@ -20,7 +20,7 @@ The exact data structure and functons called on each of the steps should be refe
 
 ## Repository structure
 - `/src` - source code for the repository
-- `/docs`- files for geneation of documentation with Documenter.jl
+- `/docs`- files for generation of documentation with Documenter.jl
 - `/test` - tests of the package
 - `/tutorial_notebooks` - tutorials aiming to explain usage of the package
-- `/validation_notebooks` - notebooks with some experiment on the generated population which were used for my Master's thesis
+- `/validation_notebooks` - notebooks with some experiments on the generated population which were used for my Master's thesis
