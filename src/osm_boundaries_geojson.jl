@@ -10,7 +10,7 @@ function read_geojson_file(path::String)
     jsonbytes = read(path)
     fc = GeoJSON.read(jsonbytes)
     areas = DataFrame(fc)
-    areas = areas[:,[:name_en, :geometry]]
+    areas = areas[:, [:name_en, :geometry]]
     id = collect(1:nrow(areas))
     insertcols!(areas, 1, ID_COLUMN => id)
     return areas
@@ -27,12 +27,12 @@ Arguments:
 - `target_filepath` - target path of the downloaded file
 """
 function download_osm_boundaries(url::String, target_filepath::String = pwd())
-    
+
     #download file
     print("Downloading file... \n")
     filepath = joinpath(target_filepath, "file.gz")
     Downloads.download(url, filepath)
-    
+
     #unzip file
     print("File downloaded. Unzipping file...\n")
     target_filepath = joinpath(target_filepath, "file.geojson")
