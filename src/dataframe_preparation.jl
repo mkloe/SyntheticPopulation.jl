@@ -61,15 +61,15 @@ function get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
     df1_copy = select(df1, Not(POPULATION_COLUMN))
     df2_copy = select(df2, Not(POPULATION_COLUMN))
 
-    intersecting_columns = intersect(names(df1), names(df2))
+    intersecting_columns = intersect(names(df1_copy), names(df2_copy))
     if isempty(intersecting_columns)
         merged_attributes = crossjoin(df1_copy, df2_copy)
     else
         merged_attributes = outerjoin(df1_copy, df2_copy, on=intersecting_columns)
     end
     
-    names_df1 = setdiff(names(df1), names(df2))
-    select!(merged_attributes, vcat(names_df1, names(df2)))
+    names_df1 = setdiff(names(df1_copy), names(df2_copy))
+    select!(merged_attributes, vcat(names_df1, names(df2_copy)))
     sort!(merged_attributes, reverse(names(merged_attributes)))
     
     dfs_for_ipf = Dict(
