@@ -85,7 +85,8 @@ function get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
 
     merged_attributes = merge(df1_unique_attr_values, df2_unique_attr_values)
     merged_attributes = allcombinations(DataFrame, merged_attributes...)
-    
+    sort!(merged_attributes, reverse(names(merged_attributes)))
+
     dfs_for_ipf = Dict(
         "ipf_merged_attributes" => merged_attributes,
         "ipf_df1" => df1_copy,
