@@ -264,7 +264,16 @@ function get_dfs_slices(
     df2_missing = vcat(missing_dfs2_array...)
     df2_missing = unique(df2_missing)
 
-    dfs_dict = Dict{String,Dict{String,DataFrame}}(
+    if any(df -> isempty(df), [df1_missing, df2_missing, ipf_merged_attributes_missing])
+        dfs_dict = Dict{String,Dict{String,DataFrame}}(
+        "dfs_for_ipf" => Dict(
+            "ipf_df1" => df1,
+            "ipf_df2" => df2,
+            "ipf_merged_attributes" => ipf_merged_attributes,
+        )
+    )
+    else
+        dfs_dict = Dict{String,Dict{String,DataFrame}}(
         "dfs_for_ipf" => Dict(
             "ipf_df1" => df1,
             "ipf_df2" => df2,
@@ -276,6 +285,7 @@ function get_dfs_slices(
             "ipf_merged_attributes" => ipf_merged_attributes_missing,
         ),
     )
+    end
 
     return dfs_dict
 end
@@ -305,7 +315,7 @@ function filter_dfs_for_ipf_by_missing_config(
         config_file = read_json_file(config_file)
         missing_config = config_file["missing_config"]
         if missing_config != "missing"
-            dfs_dict = get_dfs_slices(dfs_for_ipf, missing_config)
+                dfs_dict = get_dfs_slices(dfs_for_ipf, missing_config)
             return dfs_dict
         else
             dfs_dict["dfs_for_ipf"] = dfs_for_ipf
