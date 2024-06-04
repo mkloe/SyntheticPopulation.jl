@@ -128,6 +128,8 @@ function compute_joint_distributions(
     ipf_merged_attributes = copy(dfs_for_ipf["ipf_merged_attributes"])
 
     if nrow(ipf_df1) == 0 && nrow(ipf_df2) == nrow(ipf_merged_attributes)
+        #fix w tej funkcji faktycznie potrzebujemy ipf_merged_attributes
+        #FIX sorting - sortujemy tutaj kolumny wszytkie oprocz population
         sort!(
             ipf_df2,
             reverse(
@@ -294,7 +296,7 @@ function generate_joint_distribution(
     marginal_distributions::DataFrame...;
     config_file::Union{Nothing,String} = nothing,
 )
-
+    #FIX - why do I need sorting? This sorts the DF by columns (last column sorted first) except for population
     for dataframe in marginal_distributions
         sort!(
             dataframe,
@@ -320,7 +322,7 @@ function generate_joint_distribution(
                 marginal_distributions[i];
                 config_file = config_file,
             )
-
+            #FIX skoro merge_attributes mozna ograc cross joinem, to moze inputem do compute_join_distributions moze byc po prostu df1, df2
             if haskey(dfs_dict, "dfs_missing_config")
                 joint_distribution = compute_joint_distributions(
                     dfs_dict["dfs_for_ipf"],
@@ -330,6 +332,7 @@ function generate_joint_distribution(
                     dfs_dict["dfs_missing_config"],
                     ipf_population = "min",
                 )
+                #FIX - sortowanie ponizej
                 sort!(
                     joint_distribution,
                     reverse(

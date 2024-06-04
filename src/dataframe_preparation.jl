@@ -56,17 +56,13 @@ Arguments:
 """
 function unique_attr_values(df::DataFrame)
     df = select(df, Not(POPULATION_COLUMN))
-    df_names = names(df)
-    res = Tuple{String,Vector}[]
-    for column in df_names
-        unique_values = unique(df[:, Symbol(column)])
-        tuple = (column, unique_values)
-        push!(res, tuple)
+    res = Dict{String,Vector}()
+    for column in names(df)
+        res[column] = unique(df[:, Symbol(column)])
     end
 
     return res
 end
-
 
 """
     get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
@@ -83,32 +79,13 @@ function get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
     df1_copy = copy(df1)
     df2_copy = copy(df2)
 
+    #FIX - po co potrzebujemy unikalne wartosci kolumny
     df1_unique_attr_values = unique_attr_values(df1_copy)
     df2_unique_attr_values = unique_attr_values(df2_copy)
 
-    #deleting intersecting columns from combinations
-    intersecting_columns = names(df2_copy)[findall(in(names(df1_copy)), names(df2_copy))]
-    for element in df2_unique_attr_values
-        column, values = element
-        if column in intersecting_columns
-            deleteat!(
-                df1_unique_attr_values,
-                findall(x -> String(first(x)) == String(column), df1_unique_attr_values),
-            )
-        end
-    end
-
-    #create product dataframe 
-    df1_possible_values = map(last, df1_unique_attr_values)
-    df2_possible_values = map(last, df2_unique_attr_values)
-    possible_values = vcat(df1_possible_values, df2_possible_values)
-    values_combinations = collect(Iterators.product(possible_values...))
-    merged_attributes = DataFrame(vec(values_combinations))
-    df1_columns = map(first, df1_unique_attr_values)
-    df2_columns = map(first, df2_unique_attr_values)
-    column_names = Symbol.(vcat(df1_columns, df2_columns))
-    rename!(merged_attributes, column_names)
-
+    merged_attributes = merge(df1_unique_attr_values, df2_unique_attr_values)
+    merged_attributes = allcombinations(DataFrame, merged_attributes...)
+    
     dfs_for_ipf = Dict(
         "ipf_merged_attributes" => merged_attributes,
         "ipf_df1" => df1_copy,
@@ -205,7 +182,7 @@ function get_dfs_slices(
 )
     df1 = copy(dfs_for_ipf["ipf_df1"])
     df2 = copy(dfs_for_ipf["ipf_df2"])
-    ipf_merged_attributes = copy(dfs_for_ipf["ipf_merged_attributes"])
+    ipf_merged_attributes = copy(dfs_for_ipf["ipf_merged_attributes"]) #FIX do we really need to pass the cross-joined dataframe so many times?
 
     #filtering the ipf_merged_attributes DataFrame
     missing_dfs_array = DataFrame[]
