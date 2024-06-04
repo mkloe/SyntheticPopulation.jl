@@ -65,7 +65,7 @@ function get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
     if isempty(intersecting_columns)
         merged_attributes = crossjoin(df1_copy, df2_copy)
     else
-        merged_attributes = outerjoin(df1_copy, df1_copy, on=intersecting_columns)
+        merged_attributes = outerjoin(df1_copy, df2_copy, on=intersecting_columns)
     end
     
     names_df1 = setdiff(names(df1), names(df2))
