@@ -79,18 +79,19 @@ function get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
     df1_copy = copy(df1)
     df2_copy = copy(df2)
 
-    #FIX - po co potrzebujemy unikalne wartosci kolumny
-    df1_unique_attr_values = unique_attr_values(df1_copy)
-    df2_unique_attr_values = unique_attr_values(df2_copy)
-
-    merged_attributes = merge(df1_unique_attr_values, df2_unique_attr_values)
-    merged_attributes = allcombinations(DataFrame, merged_attributes...)
-    sort!(merged_attributes, reverse(names(merged_attributes)))
+    select!(df1_copy, Not(POPULATION_COLUMN))
+    select!(df2_copy, Not(POPULATION_COLUMN))
+    intersecting_columns = names(df2_copy)[findall(in(names(df1_copy)), names(df2_copy))]
+    if isempty(intersecting_columns)
+        merged_attributes = crossjoin(df1_copy, df2_copy)
+    else
+        merged_attributes = outerjoin(df1_copy, df1_copy, on=intersecting_columns)
+    end
 
     dfs_for_ipf = Dict(
         "ipf_merged_attributes" => merged_attributes,
-        "ipf_df1" => df1_copy,
-        "ipf_df2" => df2_copy,
+        "ipf_df1" => df1,
+        "ipf_df2" => df2,
     )
 
     return dfs_for_ipf
