@@ -60,7 +60,6 @@ function get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
     df2[:, POPULATION_COLUMN] = Int.(round.(df2[:, POPULATION_COLUMN]))
     df1_copy = select(df1, Not(POPULATION_COLUMN))
     df2_copy = select(df2, Not(POPULATION_COLUMN))
-
     intersecting_columns = intersect(names(df1_copy), names(df2_copy))
     if isempty(intersecting_columns)
         merged_attributes = crossjoin(df1_copy, df2_copy)
@@ -168,7 +167,7 @@ function get_dfs_slices(
 )
     df1 = copy(dfs_for_ipf["ipf_df1"])
     df2 = copy(dfs_for_ipf["ipf_df2"])
-    ipf_merged_attributes = copy(dfs_for_ipf["ipf_merged_attributes"]) #FIX do we really need to pass the cross-joined dataframe so many times?
+    ipf_merged_attributes = copy(dfs_for_ipf["ipf_merged_attributes"]) 
 
     #filtering the ipf_merged_attributes DataFrame
     missing_dfs_array = DataFrame[]

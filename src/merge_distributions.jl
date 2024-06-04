@@ -127,55 +127,16 @@ function compute_joint_distributions(
     ipf_df2 = copy(dfs_for_ipf["ipf_df2"])
     ipf_merged_attributes = copy(dfs_for_ipf["ipf_merged_attributes"])
 
+    #sortowanie tutaj
+    for df in [ipf_df1, ipf_df2, ipf_merged_attributes]
+        sort!(df, reverse(setdiff(names(df), [string(POPULATION_COLUMN)])))
+    end
+
     if nrow(ipf_df1) == 0 && nrow(ipf_df2) == nrow(ipf_merged_attributes)
-        #fix w tej funkcji faktycznie potrzebujemy ipf_merged_attributes
-        #FIX sorting - sortujemy tutaj kolumny wszytkie oprocz population
-        sort!(
-            ipf_df2,
-            reverse(
-                deleteat!(
-                    names(ipf_df2),
-                    findall(x -> String(x) == string(POPULATION_COLUMN), names(ipf_df2)),
-                ),
-            ),
-        )
-        sort!(
-            ipf_merged_attributes,
-            reverse(
-                deleteat!(
-                    names(ipf_merged_attributes),
-                    findall(
-                        x -> String(x) == string(POPULATION_COLUMN),
-                        names(ipf_merged_attributes),
-                    ),
-                ),
-            ),
-        )
         ipf_merged_attributes[:, POPULATION_COLUMN] = ipf_df2[:, POPULATION_COLUMN]
         return ipf_merged_attributes
 
     elseif nrow(ipf_df2) == 0 && nrow(ipf_df1) == nrow(ipf_merged_attributes)
-        sort!(
-            ipf_df1,
-            reverse(
-                deleteat!(
-                    names(ipf_df1),
-                    findall(x -> String(x) == string(POPULATION_COLUMN), names(ipf_df1)),
-                ),
-            ),
-        )
-        sort!(
-            ipf_merged_attributes,
-            reverse(
-                deleteat!(
-                    names(ipf_merged_attributes),
-                    findall(
-                        x -> String(x) == string(POPULATION_COLUMN),
-                        names(ipf_merged_attributes),
-                    ),
-                ),
-            ),
-        )
         ipf_merged_attributes[:, POPULATION_COLUMN] = ipf_df1[:, POPULATION_COLUMN]
         return ipf_merged_attributes
 
@@ -296,19 +257,6 @@ function generate_joint_distribution(
     marginal_distributions::DataFrame...;
     config_file::Union{Nothing,String} = nothing,
 )
-    #FIX - why do I need sorting? This sorts the DF by columns (last column sorted first) except for population
-    for dataframe in marginal_distributions
-        sort!(
-            dataframe,
-            reverse(
-                deleteat!(
-                    names(dataframe),
-                    findall(x -> String(x) == string(POPULATION_COLUMN), names(dataframe)),
-                ),
-            ),
-        )
-    end
-
     if length(marginal_distributions) == 1
         joint_distribution = marginal_distributions[1]
         joint_distribution[:, POPULATION_COLUMN] =
@@ -322,7 +270,6 @@ function generate_joint_distribution(
                 marginal_distributions[i];
                 config_file = config_file,
             )
-            #FIX skoro merge_attributes mozna ograc cross joinem, to moze inputem do compute_join_distributions moze byc po prostu df1, df2
             if haskey(dfs_dict, "dfs_missing_config")
                 joint_distribution = compute_joint_distributions(
                     dfs_dict["dfs_for_ipf"],
@@ -332,64 +279,16 @@ function generate_joint_distribution(
                     dfs_dict["dfs_missing_config"],
                     ipf_population = "min",
                 )
-                #FIX - sortowanie ponizej
-                sort!(
-                    joint_distribution,
-                    reverse(
-                        deleteat!(
-                            names(joint_distribution),
-                            findall(
-                                x -> String(x) == string(POPULATION_COLUMN),
-                                names(joint_distribution),
-                            ),
-                        ),
-                    ),
-                )
-                sort!(
-                    joint_distribution_missing_config,
-                    reverse(
-                        deleteat!(
-                            names(joint_distribution_missing_config),
-                            findall(
-                                x -> String(x) == string(POPULATION_COLUMN),
-                                names(joint_distribution_missing_config),
-                            ),
-                        ),
-                    ),
-                )
-
+                
                 joint_distribution =
                     vcat(joint_distribution, joint_distribution_missing_config)
-                sort!(
-                    joint_distribution,
-                    reverse(
-                        deleteat!(
-                            names(joint_distribution),
-                            findall(
-                                x -> String(x) == string(POPULATION_COLUMN),
-                                names(joint_distribution),
-                            ),
-                        ),
-                    ),
-                )
-
+                
             else
                 joint_distribution = compute_joint_distributions(
                     dfs_dict["dfs_for_ipf"],
                     ipf_population = "max",
                 )
-                sort!(
-                    joint_distribution,
-                    reverse(
-                        deleteat!(
-                            names(joint_distribution),
-                            findall(
-                                x -> String(x) == string(POPULATION_COLUMN),
-                                names(joint_distribution),
-                            ),
-                        ),
-                    ),
-                )
+                
             end
         end
     end
