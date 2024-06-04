@@ -47,24 +47,6 @@ end
 
 
 """
-    unique_attr_values(df::DataFrame)
-
-Auxilary function - it returns an array of tuples. Each tuple is a column name and unique values in this column.
-
-Arguments:
-- `df` - data frame, for which the array of tuples with column names and values are generated.
-"""
-function unique_attr_values(df::DataFrame)
-    df = select(df, Not(POPULATION_COLUMN))
-    res = Dict{String,Vector}()
-    for column in names(df)
-        res[column] = unique(df[:, Symbol(column)])
-    end
-
-    return res
-end
-
-"""
     get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
 
 Auxilary function - it returns a dictionary with data frames that are used for generation of joint distribution of attributes.
@@ -76,18 +58,20 @@ Arguments:
 function get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
     df1[:, POPULATION_COLUMN] = Int.(round.(df1[:, POPULATION_COLUMN]))
     df2[:, POPULATION_COLUMN] = Int.(round.(df2[:, POPULATION_COLUMN]))
-    df1_copy = copy(df1)
-    df2_copy = copy(df2)
+    df1_copy = select(df1, Not(POPULATION_COLUMN))
+    df2_copy = select(df2, Not(POPULATION_COLUMN))
 
-    select!(df1_copy, Not(POPULATION_COLUMN))
-    select!(df2_copy, Not(POPULATION_COLUMN))
-    intersecting_columns = names(df2_copy)[findall(in(names(df1_copy)), names(df2_copy))]
+    intersecting_columns = intersect(names(df1), names(df2))
     if isempty(intersecting_columns)
         merged_attributes = crossjoin(df1_copy, df2_copy)
     else
         merged_attributes = outerjoin(df1_copy, df1_copy, on=intersecting_columns)
     end
-
+    
+    names_df1 = setdiff(names(df1), names(df2))
+    select!(merged_attributes, vcat(names_df1, names(df2)))
+    sort!(merged_attributes, reverse(names(merged_attributes)))
+    
     dfs_for_ipf = Dict(
         "ipf_merged_attributes" => merged_attributes,
         "ipf_df1" => df1,
