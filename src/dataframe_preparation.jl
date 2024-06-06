@@ -58,9 +58,11 @@ Arguments:
 function get_dictionary_dfs_for_ipf(df1::DataFrame, df2::DataFrame)
     df1[:, POPULATION_COLUMN] = Int.(round.(df1[:, POPULATION_COLUMN]))
     df2[:, POPULATION_COLUMN] = Int.(round.(df2[:, POPULATION_COLUMN]))
+    
     df1_copy = select(df1, Not(POPULATION_COLUMN))
     df2_copy = select(df2, Not(POPULATION_COLUMN))
     intersecting_columns = intersect(names(df1_copy), names(df2_copy))
+    
     if isempty(intersecting_columns)
         merged_attributes = crossjoin(df1_copy, df2_copy)
     else
@@ -138,8 +140,8 @@ function get_zero_indices(config_file::String, merged_attributes::DataFrame)
         for dictionary in forced_config
             indices = indices_for_compute_ipf(dictionary, merged_attributes)
             append!(zero_indices, indices)
-            unique!(zero_indices)
         end
+        unique!(zero_indices)
     end
     return zero_indices
 end
@@ -242,34 +244,23 @@ function get_dfs_slices(
 
     end
 
-    ipf_merged_attributes_missing = vcat(missing_dfs_array...)
-    ipf_merged_attributes_missing = unique(ipf_merged_attributes_missing)
-    df1_missing = vcat(missing_dfs1_array...)
-    df1_missing = unique(df1_missing)
-    df2_missing = vcat(missing_dfs2_array...)
-    df2_missing = unique(df2_missing)
+    ipf_merged_attributes_missing = unique(vcat(missing_dfs_array...))
+    df1_missing = unique(vcat(missing_dfs1_array...))
+    df2_missing = unique(vcat(missing_dfs2_array...))
 
-    if any(df -> isempty(df), [df1_missing, df2_missing, ipf_merged_attributes_missing])
-        dfs_dict = Dict{String,Dict{String,DataFrame}}(
+    dfs_dict = Dict{String,Dict{String,DataFrame}}(
         "dfs_for_ipf" => Dict(
             "ipf_df1" => df1,
             "ipf_df2" => df2,
             "ipf_merged_attributes" => ipf_merged_attributes,
         )
     )
-    else
-        dfs_dict = Dict{String,Dict{String,DataFrame}}(
-        "dfs_for_ipf" => Dict(
-            "ipf_df1" => df1,
-            "ipf_df2" => df2,
-            "ipf_merged_attributes" => ipf_merged_attributes,
-        ),
-        "dfs_missing_config" => Dict(
+    if !any(df -> isempty(df), [df1_missing, df2_missing, ipf_merged_attributes_missing])
+        dfs_dict["dfs_missing_config"] = Dict(
             "ipf_df1" => df1_missing,
             "ipf_df2" => df2_missing,
             "ipf_merged_attributes" => ipf_merged_attributes_missing,
-        ),
-    )
+        )
     end
 
     return dfs_dict
@@ -295,18 +286,16 @@ function filter_dfs_for_ipf_by_missing_config(
     dfs_dict = Dict{String,Dict{String,DataFrame}}()
     if config_file === nothing
         dfs_dict["dfs_for_ipf"] = dfs_for_ipf
-        return dfs_dict
     else
         config_file = read_json_file(config_file)
         missing_config = config_file["missing_config"]
         if missing_config != "missing"
-                dfs_dict = get_dfs_slices(dfs_for_ipf, missing_config)
-            return dfs_dict
+            dfs_dict = get_dfs_slices(dfs_for_ipf, missing_config)
         else
             dfs_dict["dfs_for_ipf"] = dfs_for_ipf
-            return dfs_dict
         end
     end
+    return dfs_dict
 end
 
 
@@ -335,7 +324,9 @@ function merge_attributes(
         merged_attributes.:compute_ipf = Int.(ones(nrow(merged_attributes)))
         dfs_dict["dfs_missing_config"]["ipf_merged_attributes"] = merged_attributes
     end
+
     merged_attributes = copy(dfs_dict["dfs_for_ipf"]["ipf_merged_attributes"])
+    
     if config_file === nothing
         merged_attributes.:compute_ipf = Int.(ones(nrow(merged_attributes)))
     else

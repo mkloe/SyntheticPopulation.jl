@@ -36,7 +36,7 @@ function fit_ipf(dfs_for_ipf::Dict{String,DataFrame}; ipf_population::String)
         fac = ipf(input_sample, input_marginals)
         Z = Array(fac) .* input_sample
         if isnan(Z[1]) #error handling
-            input_sample = input_sample .+ 0.00000000000000000001
+            input_sample = input_sample .+ 1e-20
             fac = ipf(input_sample, input_marginals)
             Z = Array(fac) .* input_sample
         end
@@ -44,7 +44,7 @@ function fit_ipf(dfs_for_ipf::Dict{String,DataFrame}; ipf_population::String)
     else
         af = ipf(input_sample, ArrayMargins(input_marginals))
         if isnan(Array(af)[1]) #error handling
-            input_sample = input_sample .+ 0.00000000000000000001 # to avoid dividing by zero
+            input_sample = input_sample .+ 1e-20 # to avoid dividing by zero
             af = ipf(input_sample, input_marginals)
         end
         X_prop = input_sample ./ sum(input_sample)
@@ -127,7 +127,6 @@ function compute_joint_distributions(
     ipf_df2 = copy(dfs_for_ipf["ipf_df2"])
     ipf_merged_attributes = copy(dfs_for_ipf["ipf_merged_attributes"])
 
-    #sortowanie tutaj
     for df in [ipf_df1, ipf_df2, ipf_merged_attributes]
         sort!(df, reverse(setdiff(names(df), [string(POPULATION_COLUMN)])))
     end
@@ -141,16 +140,16 @@ function compute_joint_distributions(
         return ipf_merged_attributes
 
     else
-        intersecting_columns = names(ipf_df2)[findall(in(names(ipf_df1)), names(ipf_df2))]
+        intersecting_columns = intersect(names(ipf_df2), names(ipf_df2))
         deleteat!(
             intersecting_columns,
             findall(x -> x == string(POPULATION_COLUMN), intersecting_columns),
         )
         intersecting_columns = setdiff(intersecting_columns, shared_columns)
+        # intersecting_columns = names(ipf_df2)[findall(in(names(ipf_df1)), names(ipf_df2))]
 
         if length(intersecting_columns) == 0
             return fit_ipf(dfs_for_ipf, ipf_population = ipf_population)
-
         else
             attributes = copy(shared_columns)
             push!(attributes, intersecting_columns[1])
