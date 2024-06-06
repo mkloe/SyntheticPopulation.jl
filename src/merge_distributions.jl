@@ -140,13 +140,12 @@ function compute_joint_distributions(
         return ipf_merged_attributes
 
     else
-        intersecting_columns = intersect(names(ipf_df2), names(ipf_df2))
+        intersecting_columns = intersect(names(ipf_df1), names(ipf_df2))
         deleteat!(
             intersecting_columns,
             findall(x -> x == string(POPULATION_COLUMN), intersecting_columns),
         )
         intersecting_columns = setdiff(intersecting_columns, shared_columns)
-        # intersecting_columns = names(ipf_df2)[findall(in(names(ipf_df1)), names(ipf_df2))]
 
         if length(intersecting_columns) == 0
             return fit_ipf(dfs_for_ipf, ipf_population = ipf_population)
