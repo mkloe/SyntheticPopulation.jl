@@ -7,6 +7,7 @@ export generate_areas_dataframe_from_url
 export generate_areas_dataframe_from_file
 export generate_joint_distribution
 export assign_individuals_to_households
+export assign_and_optimize_individuals_to_households
 export assign_areas_to_households!
 
 
@@ -33,6 +34,7 @@ include("merge_distributions.jl")
 include("individual_allocation.jl")
 include("osm_boundaries_geojson.jl")
 include("area_allocation.jl")
+include("optimized_individual_allocation.jl")
 
 ##################
 #GLOBAL VARIABLES#

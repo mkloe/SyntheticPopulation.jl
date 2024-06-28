@@ -349,7 +349,7 @@ end
 """
     expand_df_from_row_counts(dataframe::DataFrame)
 
-Auxilary function - it returns a data frame that repeats each row from column `POPULATION_COLUMN` n times.
+Auxilary function - it returns a data frame that repeats each row n times, where n is value from `POPULATION_COLUMN`.
 
 Arguments:
 - `dataframe` - data frame that contains at least column `POPULATION_COLUMN` with integer values.
