@@ -48,5 +48,6 @@ aggregated_individuals = generate_joint_distribution(marginal_ind_sex_maritalsta
 #generation of dataframe of households
 aggregated_households = generate_joint_distribution(marginal_hh_size)
 
+#mo = assign_and_optimize_individuals_to_households(aggregated_individuals, aggregated_households)
 
 model, allocation_values, disaggregated_individuals, disaggregated_households = assign_and_optimize_individuals_to_households(aggregated_individuals, aggregated_households)
