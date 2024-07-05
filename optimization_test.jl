@@ -32,15 +32,18 @@ marginal_hh_size = DataFrame(
     population = Int.(round.(SCALE * household_total_population .* [0.299, 0.331, 0.217, 0.09, 0.063]))
     )
 
-
+#=
 #areas
-URL = "https://osm-boundaries.com/Download/Submit?apiKey=ba9912041675bdf0cb40ca82631b6e96&db=osm20230102&osmIds=-2988894,-2988933,-2988895,-288600,-2988896,-2988946,-5505984,-2988897,-2988898,-2988899,-2988900,-5505985,-2988901,-2988902,-568660,-2988903&format=GeoJSON&srid=4326"
-areas = generate_areas_dataframe_from_url(URL)
+#URL = "https://osm-boundaries.com/api/v1/download?apiKey=6817153008f8ba7ae5587eaa8d01f052&db=osm20240401&osmIds=-912940&boundary=administrative&format=GeoJSON&srid=4326"
+#areas_filepath = download_osm_boundaries(URL)
+
+areas = generate_areas_dataframe_from_file(areas_filepath)
 
 #aggregated_areas - population referenced from https://nj.tjj.beijing.gov.cn/nj/main/2021-tjnj/zk/indexeh.htm
 aggregated_areas = copy(areas)
 aggregated_areas.:population = SCALE .* 10000 .* [56.8, 313.2, 201.9, 345.1, 34.6, 184.0, 132.4, 45.7, 52.8, 39.3, 44.1, 131.3, 199.4, 226.9, 110.6, 70.9]
 aggregated_areas
+=#
 
 #generation of dataframe of individuals
 aggregated_individuals = generate_joint_distribution(marginal_ind_sex_maritalstatus, marginal_ind_income, marginal_ind_age_sex, config_file = "tutorial_notebooks/config_file.json")

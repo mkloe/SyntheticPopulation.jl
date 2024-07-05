@@ -9,6 +9,7 @@ export generate_joint_distribution
 export assign_individuals_to_households
 export assign_and_optimize_individuals_to_households
 export assign_areas_to_households!
+export download_osm_boundaries
 
 
 ##########
