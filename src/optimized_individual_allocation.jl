@@ -173,7 +173,7 @@ function add_household_size_constraints(model, allocation, household_index, hous
         @constraint(model, sum(allocation[married_male_indices, household_index]) <= 1)
         @constraint(model, sum(allocation[married_female_indices, household_index]) <= 1)
         @constraint(model, [(male_id, female_id) in age_difference_pairs], allocation[male_id, household_index] + allocation[female_id, household_index] <= 1)
-        @constraint(model, [(parent_id, child_id) in parent_child_pairs], allocation[parent_id, household_index] + allocation[child_id, household_index] <= 1)
+        #@constraint(model, [(parent_id, child_id) in parent_child_pairs], allocation[parent_id, household_index] + allocation[child_id, household_index] <= 1)
         @constraint(model, sum(allocation[child_indices, household_index]) >= 1)
     end
 end
