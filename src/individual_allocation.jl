@@ -23,33 +23,11 @@ function show_statistics(
     total_household_population::Int,
 )
     print(
-        "Allocated " *
-        string(
-            round(
-                (
-                    (
-                        total_individual_population -
-                        sum(aggregated_individuals[:, POPULATION_COLUMN])
-                    ) / total_individual_population
-                ) * 100,
-            ),
-        ) *
-        "% individuals.\n",
-    )
+        "Allocated " * string(round(((total_individual_population - sum(aggregated_individuals[:, POPULATION_COLUMN])) / total_individual_population) * 100,),) * "% individuals.\n",
+        )
     print(
-        "Allocated " *
-        string(
-            round(
-                (
-                    (
-                        total_household_population -
-                        sum(aggregated_households[:, POPULATION_COLUMN])
-                    ) / total_household_population
-                ) * 100,
-            ),
-        ) *
-        "% households.\n",
-    )
+        "Allocated " * string(round(((total_household_population - sum(aggregated_households[:, POPULATION_COLUMN])) / total_household_population) * 100,),) * "% households.\n",
+        )
 end
 
 
