@@ -4,17 +4,6 @@ using DataFrames
 using ProgressMeter
 
 
-function initialize_cumulative_population(aggregated_individuals)
-    cumulative_population = []
-    total_population = 0
-    for row in eachrow(aggregated_individuals)
-        total_population += row[POPULATION_COLUMN]
-        push!(cumulative_population, total_population)
-    end
-    return cumulative_population
-end
-
-
 function findrow(cumulative_population, individual_id)
     for i in 1:length(cumulative_population)
         if individual_id <= cumulative_population[i]
@@ -29,12 +18,12 @@ function add_household_size_constraints!(model, allocation, household_index, hou
     @constraint(model, sum(allocation[:, household_index]) <= household_capacity)
     if household_capacity == 1
         @constraint(model, sum(allocation[adult_indices, household_index]) <= 1)
-    elseif household_capacity == 2 # add constraint that not married = 0
+    elseif household_capacity == 2 # TODO: add constraint that not married = 0
         @constraint(model, [(male_id, female_id) in age_difference_pairs], allocation[male_id, household_index] + allocation[female_id, household_index] <= 1)
         @constraint(model, sum(allocation[married_male_indices, household_index]) == 1)
         @constraint(model, sum(allocation[married_female_indices, household_index]) == 1)
         @constraint(model, sum(allocation[child_indices, household_index]) == 0)
-    elseif household_capacity >= 3 # add constraint that not married = 0, add constraint that these must be the married adults
+    elseif household_capacity >= 3 # TODO: add constraint that not married = 0, add constraint that these must be the married adults
         @constraint(model, sum(allocation[parent_indices, household_index]) >= 1)
         @constraint(model, sum(allocation[married_male_indices, household_index]) <= 1)
         @constraint(model, sum(allocation[married_female_indices, household_index]) <= 1)
@@ -61,7 +50,6 @@ function add_household_constraints!(model, allocation, aggregated_individuals, a
     progress_household_constraint_preparation_1 = Progress(nrow(aggregated_individuals), 1, "Preparing household constraints 1/3")
     progress_household_constraint_preparation_1.printed = true
     for row in eachrow(aggregated_individuals)
-        # Adult indices
         if row[AGE_COLUMN] >= MINIMUM_ADULT_AGE
             for _ in 1:row[POPULATION_COLUMN]
                 push!(adult_indices, adult_individual_index)
