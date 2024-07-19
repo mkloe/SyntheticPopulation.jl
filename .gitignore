@@ -4,3 +4,5 @@ test.jl
 .DS_Store
 docs/build/
 evaluation_notebook/test2.jl/
+Manifest.toml
+optimization_test.jl
