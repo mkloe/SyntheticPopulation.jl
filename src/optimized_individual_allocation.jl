@@ -34,6 +34,7 @@ function add_household_constraints(model, allocation, aggregated_individuals, ag
     child_indices = []
     parent_individual_index = 1
     adult_individual_index = 1
+    cumulative_population = initialize_cumulative_population(aggregated_individuals)
     
     # Collect indices
     progress_household_constraint_preparation_1 = Progress(nrow(aggregated_individuals), 1, "Preparing household constraints 1/3")
@@ -54,9 +55,9 @@ function add_household_constraints(model, allocation, aggregated_individuals, ag
         # Parent and children indices
         if row[AGE_COLUMN] >= MINIMUM_ADULT_AGE && row[MARITALSTATUS_COLUMN] == AVAILABLE_FOR_MARRIAGE
             for _ in 1:row[POPULATION_COLUMN]
-                if row[SEX_COLUMN] == "M"
+                if row[SEX_COLUMN] == 'M'
                     push!(married_male_indices, parent_individual_index)
-                elseif row[SEX_COLUMN] == "F"
+                elseif row[SEX_COLUMN] == 'F'
                     push!(married_female_indices, parent_individual_index)
                 end
                 push!(parent_indices, parent_individual_index)
@@ -77,8 +78,10 @@ function add_household_constraints(model, allocation, aggregated_individuals, ag
     progress_household_constraint_preparation_2.printed = true
     age_difference_pairs = []
     for male_index in married_male_indices
+        male_age = aggregated_individuals[findrow(cumulative_population, male_index), AGE_COLUMN]
         for female_index in married_female_indices
-            if abs(aggregated_individuals[male_index, AGE_COLUMN] - aggregated_individuals[female_index, AGE_COLUMN]) > 5
+            female_age = aggregated_individuals[findrow(cumulative_population, female_index), AGE_COLUMN]
+            if abs(male_age - female_age) > 5
                 push!(age_difference_pairs, (male_index, female_index))
             end
         end
@@ -90,15 +93,13 @@ function add_household_constraints(model, allocation, aggregated_individuals, ag
     progress_household_constraint_preparation_3 = Progress(length(parent_indices), 1, "Preparing household constraints 3/3")
     progress_household_constraint_preparation_3.printed = true
     parent_child_pairs = []
-    cumulative_population_parents = initialize_cumulative_population(aggregated_individuals)
-    cumulative_population_children = initialize_cumulative_population(aggregated_individuals)
-    last_index_parent = 1
-    last_index_child = 1
+    index_parent = 1
+    index_child = 1
     for parent_id in parent_indices 
-        last_index_parent = findrow(cumulative_population_parents, parent_id, last_index_parent)
+        index_parent = findrow(cumulative_population, parent_id)
         for child_id in child_indices 
-            last_index_child = findrow(cumulative_population_children, child_id, last_index_child)
-            age_difference = abs(aggregated_individuals[last_index_parent, AGE_COLUMN] - aggregated_individuals[last_index_child, AGE_COLUMN])            
+            index_child = findrow(cumulative_population, child_id)
+            age_difference = aggregated_individuals[index_parent, AGE_COLUMN] - aggregated_individuals[index_child, AGE_COLUMN] 
             if age_difference < MINIMUM_ADULT_AGE || age_difference > 40
                 push!(parent_child_pairs, (parent_id, child_id))
             end
@@ -116,9 +117,6 @@ function add_household_constraints(model, allocation, aggregated_individuals, ag
         household_capacity = row[HOUSEHOLD_SIZE_COLUMN]
         population_size = row[POPULATION_COLUMN]
         for _ in 1:population_size
-            individuals_assigned_to_household = sum(allocation[:, household_index])
-            @constraint(model, individuals_assigned_to_household <= household_capacity)
-
             add_household_size_constraints(model, allocation, household_index, household_capacity,
                                            married_male_indices, married_female_indices, 
                                            adult_indices, parent_indices, child_indices, 
@@ -146,8 +144,8 @@ function initialize_cumulative_population(aggregated_individuals)
 end
 
 
-function findrow(cumulative_population, individual_id, last_index)
-    for i in last_index:length(cumulative_population)
+function findrow(cumulative_population, individual_id)
+    for i in 1:length(cumulative_population)
         if individual_id <= cumulative_population[i]
             return i
         end
@@ -158,31 +156,28 @@ end
 
 function add_household_size_constraints(model, allocation, household_index, household_capacity, married_male_indices, married_female_indices, adult_indices, parent_indices, child_indices, age_difference_pairs, parent_child_pairs)
     @constraint(model, sum(allocation[:, household_index]) <= household_capacity)
-    @constraint(model, sum(allocation[adult_indices, household_index]) >= 1)
     if household_capacity == 1
-        # do nothing
-    elseif household_capacity == 2
-        #@constraint(model, [(parent_id, child_id) in parent_child_pairs], allocation[parent_id, household_index] + allocation[child_id, household_index] <= 1)
+        @constraint(model, sum(allocation[adult_indices, household_index]) <= 1)
+    elseif household_capacity == 2 # add constraint that not married = 0
         @constraint(model, [(male_id, female_id) in age_difference_pairs], allocation[male_id, household_index] + allocation[female_id, household_index] <= 1)
-        @constraint(model, sum(allocation[parent_indices, household_index]) >= 1)
-        @constraint(model, sum(allocation[married_male_indices, household_index]) <= 1)
-        @constraint(model, sum(allocation[married_female_indices, household_index]) <= 1)
+        @constraint(model, sum(allocation[married_male_indices, household_index]) == 1)
+        @constraint(model, sum(allocation[married_female_indices, household_index]) == 1)
         @constraint(model, sum(allocation[child_indices, household_index]) == 0)
-    elseif household_capacity >= 3
+    elseif household_capacity >= 3 # add constraint that not married = 0, add constraint that these must be the married adults
         @constraint(model, sum(allocation[parent_indices, household_index]) >= 1)
         @constraint(model, sum(allocation[married_male_indices, household_index]) <= 1)
         @constraint(model, sum(allocation[married_female_indices, household_index]) <= 1)
         @constraint(model, [(male_id, female_id) in age_difference_pairs], allocation[male_id, household_index] + allocation[female_id, household_index] <= 1)
-        #@constraint(model, [(parent_id, child_id) in parent_child_pairs], allocation[parent_id, household_index] + allocation[child_id, household_index] <= 1)
-        @constraint(model, sum(allocation[child_indices, household_index]) >= 1)
+        @constraint(model, sum(allocation[child_indices, household_index]) <= household_capacity - 2)
+        @constraint(model, [(parent_id, child_id) in parent_child_pairs], allocation[parent_id, household_index] + allocation[child_id, household_index] <= 1)
     end
 end
 
 
 function assign_and_optimize_individuals_to_households(aggregated_individuals::DataFrame, aggregated_households::DataFrame)
     # Prepare dataframes for processing
-    aggregated_individuals_df = copy(aggregated_individuals)
-    aggregated_households_df = copy(aggregated_households)
+    aggregated_individuals_df = aggregated_individuals[aggregated_individuals[:, POPULATION_COLUMN] .> 0, :]
+    aggregated_households_df = aggregated_households[aggregated_households[:, POPULATION_COLUMN] .> 0, :]
 
     individuals_count = sum(aggregated_individuals_df[:, POPULATION_COLUMN])  # Total number of individuals
     households_count = sum(aggregated_households_df[:, POPULATION_COLUMN])  # Total number of households
@@ -201,7 +196,7 @@ function assign_and_optimize_individuals_to_households(aggregated_individuals::D
 
     println("Optimization of allocation started.")
     optimize!(model)
-
+    
     # Show final statistics
     println("Optimization completed.")
     println("Objective value: ", objective_value(model))
@@ -229,7 +224,7 @@ function assign_and_optimize_individuals_to_households(aggregated_individuals::D
     progress_households.printed = true
     max_household_size = maximum(aggregated_households_df[:, HOUSEHOLD_SIZE_COLUMN])
     household_columns = [:agg_hh_id, :head_id, :partner_id]  # Initialize with parent columns
-    for i in 1:(max_household_size - 1)
+    for i in 1:(max_household_size - 2)
         push!(household_columns, Symbol("child$(i)_id"))
     end
     disaggregated_households = DataFrame(id=1:households_count)
@@ -238,28 +233,33 @@ function assign_and_optimize_individuals_to_households(aggregated_individuals::D
     end
 
     # Fill disaggregated households DataFrame
-    cumulative_population = cumsum(aggregated_households_df[!, POPULATION_COLUMN])
+    cumulative_population_hh = cumsum(aggregated_households_df[!, POPULATION_COLUMN])
+    cumulative_population_ind = cumsum(aggregated_individuals_df[!, POPULATION_COLUMN])
     for household_id in 1:households_count
 
         # Add household ID from aggregated_households
-        agg_hh_id = findfirst(x -> x >= household_id, cumulative_population)
+        agg_hh_id = findfirst(x -> x >= household_id, cumulative_population_hh)
         disaggregated_households[household_id, :agg_hh_id] = aggregated_households_df[agg_hh_id, ID_COLUMN]
 
         # Assign parents and children
         assigned_individuals = findall(x -> x == 1.0, allocation_values[:, household_id])
         if length(assigned_individuals) == 1
-            disaggregated_households[household_id, :head_id] = assigned_individuals[1]
+            individual_id = findrow(cumulative_population_ind, assigned_individuals[1])
+            disaggregated_households[household_id, :head_id] = aggregated_individuals_df[individual_id, :id]
         elseif length(assigned_individuals) >= 2
             parents = intersect(assigned_individuals, parent_indices)
-            disaggregated_households[household_id, :head_id] = parents[1] 
+            individual_id = findrow(cumulative_population_ind, parents[1])
+            disaggregated_households[household_id, :head_id] = aggregated_individuals_df[individual_id, :id]
             if length(parents) == 2
-                disaggregated_households[household_id, :partner_id] = parents[2]
+                individual_id = findrow(cumulative_population_ind, parents[2])
+                disaggregated_households[household_id, :partner_id] = aggregated_individuals_df[individual_id, :id]
             end
             children = setdiff(assigned_individuals, parents)
             child_count = 0
             for child_id in children
                 child_count += 1
-                disaggregated_households[household_id, Symbol("child$(child_count)_id")] = child_id
+                individual_id = findrow(cumulative_population_ind, child_id)
+                disaggregated_households[household_id, Symbol("child$(child_count)_id")] = aggregated_individuals_df[individual_id, :id]
             end
         end
 
@@ -268,6 +268,6 @@ function assign_and_optimize_individuals_to_households(aggregated_individuals::D
     finish!(progress_households)
 
     print("Allocation finished.")
-
+    #poprawic disaggregated_individuals
     return model, allocation_values, disaggregated_individuals, disaggregated_households
 end
