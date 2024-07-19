@@ -15,21 +15,27 @@ end
 
 
 function add_household_size_constraints!(model, allocation, household_index, household_capacity, married_male_indices, married_female_indices, adult_indices, parent_indices, child_indices, age_difference_pairs, parent_child_pairs)
+    # Total number of individuals in a household cannot be larger than household_capacity
     @constraint(model, sum(allocation[:, household_index]) <= household_capacity)
+    
     if household_capacity == 1
-        @constraint(model, sum(allocation[adult_indices, household_index]) <= 1)
-    elseif household_capacity == 2 # TODO: add constraint that not married = 0
-        @constraint(model, [(male_id, female_id) in age_difference_pairs], allocation[male_id, household_index] + allocation[female_id, household_index] <= 1)
-        @constraint(model, sum(allocation[married_male_indices, household_index]) == 1)
-        @constraint(model, sum(allocation[married_female_indices, household_index]) == 1)
-        @constraint(model, sum(allocation[child_indices, household_index]) == 0)
-    elseif household_capacity >= 3 # TODO: add constraint that not married = 0, add constraint that these must be the married adults
-        @constraint(model, sum(allocation[parent_indices, household_index]) >= 1)
-        @constraint(model, sum(allocation[married_male_indices, household_index]) <= 1)
-        @constraint(model, sum(allocation[married_female_indices, household_index]) <= 1)
-        @constraint(model, [(male_id, female_id) in age_difference_pairs], allocation[male_id, household_index] + allocation[female_id, household_index] <= 1)
-        @constraint(model, sum(allocation[child_indices, household_index]) <= household_capacity - 2)
-        @constraint(model, [(parent_id, child_id) in parent_child_pairs], allocation[parent_id, household_index] + allocation[child_id, household_index] <= 1)
+        @constraint(model, sum(allocation[adult_indices, household_index]) <= 1) # There is 0 or 1 adult in a household
+        @constraint(model, sum(allocation[child_indices, household_index]) == 0) # There are 0 children in a household
+    
+    elseif household_capacity == 2 
+        @constraint(model, sum(allocation[parent_indices, household_index]) >= 1) # There is 0 or 1 adult in a household
+        @constraint(model, [(male_id, female_id) in age_difference_pairs], allocation[male_id, household_index] + allocation[female_id, household_index] <= 1) # There is maximum 1 person from each pair of male-female adults that have too large age gap
+        @constraint(model, sum(allocation[married_male_indices, household_index]) == 1) # There is exactly one married adult male; TODO: could be <= 1
+        @constraint(model, sum(allocation[married_female_indices, household_index]) == 1) # There is exactly one married adult female; TODO: could be <= 1
+        @constraint(model, sum(allocation[child_indices, household_index]) == 0) # There are 0 children in a household; TODO: could be <= household_capacity - number of parents)
+    
+    elseif household_capacity >= 3
+        @constraint(model, sum(allocation[parent_indices, household_index]) >= 1) # There is 0 or 1 adult in a household
+        @constraint(model, sum(allocation[married_male_indices, household_index]) <= 1) # There is 0 or 1 married adult male
+        @constraint(model, sum(allocation[married_female_indices, household_index]) <= 1)# There is 0 or 1 married adult female
+        @constraint(model, [(male_id, female_id) in age_difference_pairs], allocation[male_id, household_index] + allocation[female_id, household_index] <= 1) # There is maximum 1 person from each pair of male-female adults that have too large age gap
+        @constraint(model, sum(allocation[child_indices, household_index]) <= household_capacity - 2) # TODO: could be <= household capacity - sum of assigned parents
+        @constraint(model, [(parent_id, child_id) in parent_child_pairs], allocation[parent_id, household_index] + allocation[child_id, household_index] <= 1) # There is maximum 1 person from each pair of parent-child that have too large age gap
     end
 end
 
