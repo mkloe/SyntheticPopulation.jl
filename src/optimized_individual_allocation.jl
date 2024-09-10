@@ -35,7 +35,7 @@ function add_household_size_constraints!(
         @constraint(model, sum(allocation[child_indices, household_index]) == 0) # There are 0 children in a household
 
     elseif household_capacity == 2
-        @constraint(model, sum(allocation[parent_indices, household_index]) >= 1) # There is 0 or 1 adult in a household
+        @constraint(model, sum(allocation[adult_indices, household_index]) >= 1) # There is 1 or more adult in a household
         @constraint(
             model,
             [(male_id, female_id) in age_difference_pairs],
@@ -46,7 +46,8 @@ function add_household_size_constraints!(
         @constraint(model, sum(allocation[child_indices, household_index]) == 0) # There are 0 children in a household; TODO: could be <= household_capacity - number of parents)
 
     elseif household_capacity >= 3
-        @constraint(model, sum(allocation[parent_indices, household_index]) >= 1) # There is 0 or 1 adult in a household
+        @constraint(model, sum(allocation[adult_indices, household_index]) >= 1) # There is 1 or more adult in a household
+        @constraint(model, sum(allocation[parent_indices, household_index]) >= 1) # There is 0 or 1 parent in a household
         @constraint(model, sum(allocation[married_male_indices, household_index]) <= 1) # There is 0 or 1 married adult male
         @constraint(model, sum(allocation[married_female_indices, household_index]) <= 1)# There is 0 or 1 married adult female
         @constraint(
