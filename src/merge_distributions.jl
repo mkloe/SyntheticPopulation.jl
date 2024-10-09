@@ -57,7 +57,7 @@ function fit_ipf(dfs_for_ipf::Dict{String,DataFrame}; ipf_population::String)
                 min(sum(ipf_df1[:, POPULATION_COLUMN]), sum(ipf_df2[:, POPULATION_COLUMN]))
         end
         Z = population_size .* Z
-        Z = Int.(round.(Z))
+        Z = Int.(round.(Z)) #error alert: if the numbers are low, some numbers can be rounded to 0. e.g. total will be 10 instead of 15
     end
 
     #generate output df from ipf
