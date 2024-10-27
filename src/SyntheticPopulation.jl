@@ -44,7 +44,7 @@ include("merge_distributions.jl")
 include("individual_allocation.jl")
 include("osm_boundaries_geojson.jl")
 include("area_allocation.jl")
-include("optimized_individual_allocation copy.jl")
+include("optimized_individual_allocation.jl")
 
 ##################
 #GLOBAL VARIABLES#
