@@ -1,9 +1,11 @@
 using JuMP
 using GLPK
+using HiGHS
 using DataFrames
 using ProgressMeter
+using TimerOutputs
 
-
+# Create a TimerOutput instance
 function findrow(cumulative_population, individual_id)
     for i = 1:length(cumulative_population)
         if individual_id <= cumulative_population[i]
@@ -204,25 +206,9 @@ function add_household_constraints!(
 end
 
 
-function add_individual_assignment_constraints!(model, allocation, aggregated_individuals)
-    # Initialize variables and progress bar
-    individual_index = 1
-    progress_individual_constraints =
-        Progress(nrow(aggregated_individuals), 1, "Adding individual constraints")
-    progress_individual_constraints.printed = true
-
+function add_individual_assignment_constraints!(model, allocation)
     # Add a constraint: each individual can only be assigned once
-    println("Creation of individual constraints started.")
-    for row in eachrow(aggregated_individuals)
-        population_size = row[POPULATION_COLUMN]
-        for _ = 1:population_size
-            @constraint(model, sum(allocation[individual_index, :]) <= 1)
-            individual_index += 1
-        end
-        ProgressMeter.next!(progress_individual_constraints)
-    end
-    finish!(progress_individual_constraints)
-    println("Creation of individual constraints finished.")
+    @constraint(model, [i=1:size(allocation, 1)], sum(allocation[i, j] for j in 1:size(allocation, 2)) <= 1)
 end
 
 
@@ -230,34 +216,45 @@ function assign_and_optimize_individuals_to_households!(
     aggregated_individuals::DataFrame,
     aggregated_households::DataFrame,
 )
+    timer = TimerOutput()
     # Prepare dataframes for processing
-    aggregated_individuals_df =
-        aggregated_individuals[aggregated_individuals[:, POPULATION_COLUMN].>0, :]
-    aggregated_households_df =
-        aggregated_households[aggregated_households[:, POPULATION_COLUMN].>0, :]
-    individuals_count = sum(aggregated_individuals_df[:, POPULATION_COLUMN])  # Total number of individuals
-    households_count = sum(aggregated_households_df[:, POPULATION_COLUMN])  # Total number of households
-
+    @timeit timer "Prepare dataframes for processing" begin
+        aggregated_individuals_df =
+            aggregated_individuals[aggregated_individuals[:, POPULATION_COLUMN].>0, :]
+        aggregated_households_df =
+            aggregated_households[aggregated_households[:, POPULATION_COLUMN].>0, :]
+        individuals_count = sum(aggregated_individuals_df[:, POPULATION_COLUMN])  # Total number of individuals
+        households_count = sum(aggregated_households_df[:, POPULATION_COLUMN])  # Total number of households
+    end
     # Show initial statistics
     println("Total number of individuals: ", individuals_count)
     println("Total number of households: ", households_count)
     println("Allocation started...")
 
     # Define model
-    model = Model(GLPK.Optimizer)
-    @variable(model, allocation[1:individuals_count, 1:households_count], Bin)  # Define decision variables
-    @objective(model, Max, sum(allocation))  # Define objective function: maximize the number of assigned individuals
-    add_individual_assignment_constraints!(model, allocation, aggregated_individuals_df)
-    adult_indices, parent_indices, child_indices = add_household_constraints!(
-        model,
-        allocation,
-        aggregated_individuals_df,
-        aggregated_households_df,
-    )
+    @timeit timer "Model deifinition" begin
+        model = Model(GLPK.Optimizer)
+        @variable(model, allocation[1:individuals_count, 1:households_count], Bin)  # Define decision variables
+        @objective(model, Max, sum(allocation))  # Define objective function: maximize the number of assigned individuals
+    end
+
+    @timeit timer "add_individual_assignment_constraints!" begin
+        add_individual_assignment_constraints!(model, allocation)
+    end
+    @timeit timer "add_household_constraints!" begin
+        adult_indices, parent_indices, child_indices = add_household_constraints!(
+            model,
+            allocation,
+            aggregated_individuals_df,
+            aggregated_households_df,
+        )
+    end
 
     # Optimization
     println("Optimization of allocation started.")
-    optimize!(model)
+    @timeit timer "Optimization" begin
+        optimize!(model)
+    end
 
     # Show final statistics
     println("Optimization completed.")
@@ -271,82 +268,87 @@ function assign_and_optimize_individuals_to_households!(
     cumulative_population_ind = cumsum(aggregated_individuals_df[!, POPULATION_COLUMN])
 
     # Disaggregate individuals based on allocation results
-    progress_individuals = Progress(individuals_count, 1, "Disaggregating individuals")
-    progress_individuals.printed = true
-    disaggregated_individuals = DataFrame(
-        id = 1:individuals_count,
-        agg_ind_id = Vector{Union{Int,Missing}}(missing, individuals_count),
-        household_id = Vector{Union{Int,Missing}}(missing, individuals_count),
-    )
-    for individual_id = 1:individuals_count
+    @timeit timer "Disaggregate individuals based on allocation results" begin
+        progress_individuals = Progress(individuals_count, 1, "Disaggregating individuals")
+        progress_individuals.printed = true
+        disaggregated_individuals = DataFrame(
+            id = 1:individuals_count,
+            agg_ind_id = Vector{Union{Int,Missing}}(missing, individuals_count),
+            household_id = Vector{Union{Int,Missing}}(missing, individuals_count),
+        )
+        for individual_id = 1:individuals_count
 
-        # Assign individual ID to disaggregated_individuals
-        agg_ind_id = findrow(cumulative_population_ind, individual_id)
-        disaggregated_individuals[individual_id, :agg_ind_id] =
-            aggregated_individuals_df[agg_ind_id, :id]
+            # Assign individual ID to disaggregated_individuals
+            agg_ind_id = findrow(cumulative_population_ind, individual_id)
+            disaggregated_individuals[individual_id, :agg_ind_id] =
+                aggregated_individuals_df[agg_ind_id, :id]
 
-        # Assign household ID to disaggregated individuals
-        household_id = findfirst(x -> x == 1.0, allocation_values[individual_id, :])
-        if household_id === nothing
-            disaggregated_individuals[individual_id, :household_id] = missing
-        else
-            disaggregated_individuals[individual_id, :household_id] = household_id
+            # Assign household ID to disaggregated individuals
+            household_id = findfirst(x -> x == 1.0, allocation_values[individual_id, :])
+            if household_id === nothing
+                disaggregated_individuals[individual_id, :household_id] = missing
+            else
+                disaggregated_individuals[individual_id, :household_id] = household_id
+            end
+            ProgressMeter.next!(progress_individuals)
         end
-        ProgressMeter.next!(progress_individuals)
+        finish!(progress_individuals)
     end
-    finish!(progress_individuals)
+    
 
     # Disaggregate households based on allocation results
-    progress_households = Progress(households_count, 1, "Disaggregating households")
-    progress_households.printed = true
-    max_household_size = maximum(aggregated_households_df[:, HOUSEHOLD_SIZE_COLUMN])
-    household_columns = [:agg_hh_id, :head_id, :partner_id]  # Initialize with parent columns
-    for i = 1:(max_household_size-2)
-        push!(household_columns, Symbol("child$(i)_id"))
-    end
-    disaggregated_households = DataFrame(id = 1:households_count)
-    for column in household_columns
-        disaggregated_households[!, column] =
-            Vector{Union{Int,Missing}}(missing, households_count)
-    end
-
-    for household_id = 1:households_count
-
-        # Add household ID from aggregated_households
-        agg_hh_id = findfirst(x -> x >= household_id, cumulative_population_hh)
-        disaggregated_households[household_id, :agg_hh_id] =
-            aggregated_households_df[agg_hh_id, ID_COLUMN]
-
-        # Assign parents and children
-        assigned_individuals = findall(x -> x == 1.0, allocation_values[:, household_id])
-        if length(assigned_individuals) == 1
-            individual_id = findrow(cumulative_population_ind, assigned_individuals[1])
-            disaggregated_households[household_id, :head_id] =
-                aggregated_individuals_df[individual_id, :id]
-        elseif length(assigned_individuals) >= 2
-            parents = intersect(assigned_individuals, parent_indices)
-            individual_id = findrow(cumulative_population_ind, parents[1])
-            disaggregated_households[household_id, :head_id] =
-                aggregated_individuals_df[individual_id, :id]
-            if length(parents) == 2
-                individual_id = findrow(cumulative_population_ind, parents[2])
-                disaggregated_households[household_id, :partner_id] =
-                    aggregated_individuals_df[individual_id, :id]
-            end
-            children = setdiff(assigned_individuals, parents)
-            child_count = 0
-            for child_id in children
-                child_count += 1
-                individual_id = findrow(cumulative_population_ind, child_id)
-                disaggregated_households[household_id, Symbol("child$(child_count)_id")] =
-                    aggregated_individuals_df[individual_id, :id]
-            end
+    @timeit timer "Disaggregate households based on allocation results" begin
+        progress_households = Progress(households_count, 1, "Disaggregating households")
+        progress_households.printed = true
+        max_household_size = maximum(aggregated_households_df[:, HOUSEHOLD_SIZE_COLUMN])
+        household_columns = [:agg_hh_id, :head_id, :partner_id]  # Initialize with parent columns
+        for i = 1:(max_household_size-2)
+            push!(household_columns, Symbol("child$(i)_id"))
+        end
+        disaggregated_households = DataFrame(id = 1:households_count)
+        for column in household_columns
+            disaggregated_households[!, column] =
+                Vector{Union{Int,Missing}}(missing, households_count)
         end
 
-        ProgressMeter.next!(progress_households)
+        for household_id = 1:households_count
+
+            # Add household ID from aggregated_households
+            agg_hh_id = findfirst(x -> x >= household_id, cumulative_population_hh)
+            disaggregated_households[household_id, :agg_hh_id] =
+                aggregated_households_df[agg_hh_id, ID_COLUMN]
+
+            # Assign parents and children
+            assigned_individuals = findall(x -> x == 1.0, allocation_values[:, household_id])
+            if length(assigned_individuals) == 1
+                individual_id = findrow(cumulative_population_ind, assigned_individuals[1])
+                disaggregated_households[household_id, :head_id] =
+                    aggregated_individuals_df[individual_id, :id]
+            elseif length(assigned_individuals) >= 2
+                parents = intersect(assigned_individuals, parent_indices)
+                individual_id = findrow(cumulative_population_ind, parents[1])
+                disaggregated_households[household_id, :head_id] =
+                    aggregated_individuals_df[individual_id, :id]
+                if length(parents) == 2
+                    individual_id = findrow(cumulative_population_ind, parents[2])
+                    disaggregated_households[household_id, :partner_id] =
+                        aggregated_individuals_df[individual_id, :id]
+                end
+                children = setdiff(assigned_individuals, parents)
+                child_count = 0
+                for child_id in children
+                    child_count += 1
+                    individual_id = findrow(cumulative_population_ind, child_id)
+                    disaggregated_households[household_id, Symbol("child$(child_count)_id")] =
+                        aggregated_individuals_df[individual_id, :id]
+                end
+            end
+
+            ProgressMeter.next!(progress_households)
+        end
+        finish!(progress_households)
     end
-    finish!(progress_households)
     print("Allocation finished.")
 
-    return model, allocation_values, disaggregated_individuals, disaggregated_households
+    return model, allocation_values, disaggregated_individuals, disaggregated_households, timer
 end

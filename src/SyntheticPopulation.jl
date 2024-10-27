@@ -7,9 +7,18 @@ export generate_areas_dataframe_from_url
 export generate_areas_dataframe_from_file
 export generate_joint_distribution
 export assign_individuals_to_households
-export assign_and_optimize_individuals_to_households!
+export add_indices_range_to_indiv
+export add_individual_flags
+export prep_group_indices_for_indv_constraints
+export add_indices_range_to_hh
+export prep_group_indices_for_hh_constraints
+export define_and_run_optimization
+export disaggr_optimized_indiv
+export disaggr_optimized_hh
 export assign_areas_to_households!
 export download_osm_boundaries
+
+
 
 
 ##########
@@ -35,7 +44,7 @@ include("merge_distributions.jl")
 include("individual_allocation.jl")
 include("osm_boundaries_geojson.jl")
 include("area_allocation.jl")
-include("optimized_individual_allocation.jl")
+include("optimized_individual_allocation copy.jl")
 
 ##################
 #GLOBAL VARIABLES#
