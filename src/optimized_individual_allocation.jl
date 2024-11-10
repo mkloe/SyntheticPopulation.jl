@@ -1,9 +1,11 @@
 using JuMP
 using GLPK
 using HiGHS
+using Cbc
 using DataFrames
 
 using ShiftedArrays
+using LinearAlgebra
 
 
 function findrow(cumulative_population, individual_id)
@@ -33,7 +35,8 @@ function add_indices_range_to_indiv(aggregated_individuals::DataFrame)
     aggregated_individuals[!,"indiv_range_to"] .= cumsum(aggregated_individuals[!, POPULATION_COLUMN])
     aggregated_individuals[!, "indiv_range_from"] = replace(ShiftedArrays.lag(aggregated_individuals[!, "indiv_range_to"], 1), missing => 0)
     aggregated_individuals[!, "indiv_indices"] = map(row -> row.indiv_range_from+1:row.indiv_range_to, eachrow(aggregated_individuals))
-    aggregated_individuals = select(aggregated_individuals, Not([:indiv_range_to, :indiv_range_from]))
+    rename!(aggregated_individuals,:indiv_range_to => :cum_population)
+    aggregated_individuals = select(aggregated_individuals, Not([:indiv_range_from]))
     return aggregated_individuals
 end
 
@@ -77,7 +80,8 @@ function add_indices_range_to_hh(aggregated_households::DataFrame)
     aggregated_households[!,"hh_range_to"] .= cumsum(aggregated_households[!, POPULATION_COLUMN])
     aggregated_households[!, "hh_range_from"] = replace(ShiftedArrays.lag(aggregated_households[!, "hh_range_to"], 1), missing => 0)
     aggregated_households[!, "hh_indices"] = map(row -> row.hh_range_from+1:row.hh_range_to, eachrow(aggregated_households))
-    aggregated_households = select(aggregated_households, Not([:hh_range_to, :hh_range_from]))
+    rename!(aggregated_households,:hh_range_to => :cum_population)
+    aggregated_households = select(aggregated_households, Not([:hh_range_from]))
     return aggregated_households
 end
 
@@ -96,6 +100,7 @@ A tuple containing:
 - `married_female_indices::Vector{Int}`: Vector of indices for married females.
 - `parent_indices::Vector{Int}`: Vector of indices for potential parents.
 - `child_indices::Vector{Int}`: Vector of indices for potential children.
+- `individuals_age_vect::Vector{Int}``: Vector of individuals age.
 """
 function prep_group_indices_for_indv_constraints(aggregated_individuals::DataFrame)
     # adult_indices
@@ -119,7 +124,10 @@ function prep_group_indices_for_indv_constraints(aggregated_individuals::DataFra
     filtered_df = filter(row -> row.is_potential_child == true, aggregated_individuals)
     child_indices = reduce(vcat, [collect(r) for r in filtered_df[!, "indiv_indices"]])
 
-    return adult_indices, married_male_indices, married_female_indices, parent_indices, child_indices
+    # age vector
+    individuals_age_vect = reduce(vcat, [fill(size, length(r)) for (size, r) in zip(aggregated_individuals[!, "age"], aggregated_individuals[!, "indiv_indices"])])
+
+    return adult_indices, married_male_indices, married_female_indices, parent_indices, child_indices, individuals_age_vect
 end
 
 
@@ -201,18 +209,20 @@ function define_and_run_optimization(aggregated_individuals::DataFrame
                                     , married_female_indices::Vector{Int}
                                     , parent_indices::Vector{Int}
                                     , child_indices::Vector{Int}
+                                    , age_vector::Vector{Int}
                                     )
 
     # Create a new optimization mode
-    model = Model(GLPK.Optimizer)
+    model = Model(Cbc.Optimizer)
 
     # Define decision variables: a binary allocation matrix where
     # allocation[i, j] indicates whether individual i is assigned to household j
-    @variable(model, allocation[1:sum(aggregated_individuals[!,POPULATION_COLUMN]), 1:sum(aggregated_households[!,POPULATION_COLUMN])], Bin)
+    @variable(model, allocation[1:sum(aggregated_individuals[!,POPULATION_COLUMN]), 1:sum(aggregated_households[!,POPULATION_COLUMN])], Bin, start = 0)
+    @variable(model, penalty[1:sum(aggregated_households[!,POPULATION_COLUMN])], lower_bound=0, start = 0)
 
     # Define the objective function: maximize the total number of assigned individuals
-    @objective(model, Max, sum(allocation))
-
+    @objective(model, Max, sum(allocation) - sum(penalty) ) #)
+    
     # Add constraints to the model
 
     # Each individual can only be assigned to one household
@@ -224,7 +234,6 @@ function define_and_run_optimization(aggregated_individuals::DataFrame
     # There can be 0 children
     @constraint(model, [hh_id=hh_size1_indices], sum(allocation[indv_id, hh_id] for indv_id in child_indices) == 0) 
     
-
     # Constraints for households of size 2
     # There must be at least 1 adult
     @constraint(model, [hh_id=hh_size2_indices], sum(allocation[indv_id, hh_id] for indv_id in adult_indices) >= 1) 
@@ -233,8 +242,25 @@ function define_and_run_optimization(aggregated_individuals::DataFrame
     # There must be exactly one married adult female
     @constraint(model, [hh_id=hh_size2_indices], sum(allocation[indv_id, hh_id] for indv_id in married_female_indices) == 1) 
     # There must be 0 children
-    @constraint(model, [hh_id=hh_size2_indices], sum(allocation[indv_id, hh_id] for indv_id in child_indices) == 0) 
+    @constraint(model, [hh_id=hh_size2_indices], sum(allocation[indv_id, hh_id] for indv_id in child_indices) == 0)
+    # Age difference between parents not bigger than 5 years
+    married_male_mask = zeros(Int, length(age_vector))
+    married_male_mask[married_male_indices] .= 1
+
+    married_female_mask = zeros(Int, length(age_vector))
+    married_female_mask[married_female_indices] .= 1
     
+    for hh_id in hh_size2_indices
+        active_married_male = sum(allocation[:, hh_id] .* married_male_mask)
+        active_married_female = sum(allocation[:, hh_id] .* married_female_mask)
+        
+        total_age_male = sum(allocation[:, hh_id] .* married_male_mask .* age_vector)
+        total_age_female = sum(allocation[:, hh_id] .* married_female_mask .* age_vector)
+
+        # Soft constraint with penalty
+        @constraint(model, active_married_female * (total_age_male - total_age_female) <= 5 + penalty[hh_id])
+        @constraint(model, active_married_male * (total_age_female - total_age_male) <= 5 + penalty[hh_id])
+    end
 
     # Constraints for households of size 3 or more
     # There must be at least 1 adult 
@@ -245,7 +271,7 @@ function define_and_run_optimization(aggregated_individuals::DataFrame
     @constraint(model, [hh_id=hh_size3plus_indices], sum(allocation[indv_id, hh_id] for indv_id in married_male_indices) <= 1) 
     # There can be at most 1 married adult female 
     @constraint(model, [hh_id=hh_size3plus_indices], sum(allocation[indv_id, hh_id] for indv_id in married_female_indices) <= 1) 
-    # The number of children in the household cannot exceed the household's capacity minus 2
+    # The number of children in the household cannot exceed the household's capacity minus 2 parents
     @constraint(model, [idx=1:length(hh_size3plus_indices)], sum(allocation[indv_id, hh_size3plus_indices[idx]] for indv_id in child_indices) <= hh_size3plus_capacity[idx] - 2)
     
     # Optimize the model to find the best allocation of individuals to households
@@ -254,8 +280,9 @@ function define_and_run_optimization(aggregated_individuals::DataFrame
 
     # Retrieve the allocation results from the model
     allocation_values = value.(allocation)
+    penalty = value.(penalty)
 
-    return allocation_values  # Return the allocation matrix
+    return allocation_values, penalty  # Return the allocation matrix
 end
 
 

@@ -7,9 +7,8 @@ using SyntheticPopulation
 
 
 
-
 #each individual and each household represent 100.000 individuals or households
-SCALE = 0.0001 
+SCALE = 0.00001 
 
 #all values are based on China census data
 individual_popoulation_size = 21890000
@@ -42,17 +41,23 @@ marginal_hh_size = DataFrame(
 #generation of dataframe of individuals
 aggregated_individuals = generate_joint_distribution(marginal_ind_sex_maritalstatus, marginal_ind_income, marginal_ind_age_sex, config_file = "tutorial_notebooks/config_file.json")
 filter!(row -> row[SyntheticPopulation.POPULATION_COLUMN] >= 1, aggregated_individuals)
+aggregated_individuals.id = 1:nrow(aggregated_individuals)
 aggregated_individuals = add_indices_range_to_indiv(aggregated_individuals)
 aggregated_individuals = add_individual_flags(aggregated_individuals)
-adult_indices, married_male_indices, married_female_indices, parent_indices, child_indices = prep_group_indices_for_indv_constraints(aggregated_individuals);
+adult_indices, married_male_indices, married_female_indices, parent_indices, child_indices, age_vector = prep_group_indices_for_indv_constraints(aggregated_individuals);
+
+
 
 #generation of dataframe of households
 aggregated_households = generate_joint_distribution(marginal_hh_size)
 aggregated_households = add_indices_range_to_hh(aggregated_households)
 hh_size1_indices, hh_size2_indices, hh_size3plus_indices, hh_size3plus_capacity = prep_group_indices_for_hh_constraints(aggregated_households);
 
+
+
+
 # Optimization
-allocation_values = define_and_run_optimization(aggregated_individuals
+allocation_values, penalty = define_and_run_optimization(aggregated_individuals
     , aggregated_households
 
     , hh_size1_indices
@@ -64,10 +69,49 @@ allocation_values = define_and_run_optimization(aggregated_individuals
     , married_male_indices
     , married_female_indices
     , parent_indices
-    , child_indices);
+    , child_indices
+    , age_vector);  
+
+    # obj val 155
+    # constr obj val 155
+    # constr with penalty 155
+    
+
+    sum(allocation_values)
 
 disaggregated_individuals = disaggr_optimized_indiv(allocation_values, aggregated_individuals)
 disaggregated_households = disaggr_optimized_hh(allocation_values, aggregated_households, aggregated_individuals, parent_indices)
+
+# 1. Join `disaggregated_households` with `aggregated_households` to add the `hh_size` column
+hh_with_size = leftjoin(disaggregated_households, aggregated_households[:, [:id, :hh_size]], on = :agg_hh_id => :id)
+
+# 2. Filter households with `hh_size == 2`
+hh_size_2 = hh_with_size[hh_with_size.hh_size .== 2, :]
+
+# 3. Join `disaggregated_individuals` to get individual IDs within each household
+# Use `makeunique=true` to handle duplicate column names automatically
+hh_individuals = leftjoin(hh_size_2, disaggregated_individuals, on = :id => :household_id, makeunique=true)
+
+# 4. Join with `aggregated_individuals` to get head and partner details
+hh_head = leftjoin(hh_individuals, aggregated_individuals, on = :head_id => :id, makeunique=true)
+hh_partner = leftjoin(hh_head, aggregated_individuals, on = :partner_id => :id, makeunique=true)
+
+# Update renaming based on confirmed column names
+rename!(hh_partner, Dict(
+    Symbol("age") => :head_age,
+    Symbol("sex") => :head_sex,
+    Symbol("age_1") => :partner_age,   # Adjust "age_2_right" if needed
+    Symbol("sex_1") => :partner_sex    # Adjust "sex_2_right" if needed
+))
+
+hh_partner
+
+# 5. Filter where head and partner have different sexes and age difference > 5
+age_diff_criteria = hh_partner[(abs.(hh_partner.partner_age .- hh_partner.head_age) .> 5), :]
+
+# Display households with the specified age difference
+age_diff_criteria
+
 
 
 function join_and_rename!(df1::DataFrame, df2::DataFrame, column_name::Symbol)
