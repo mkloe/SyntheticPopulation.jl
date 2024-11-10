@@ -251,15 +251,12 @@ function define_and_run_optimization(aggregated_individuals::DataFrame
     married_female_mask[married_female_indices] .= 1
     
     for hh_id in hh_size2_indices
-        active_married_male = sum(allocation[:, hh_id] .* married_male_mask)
-        active_married_female = sum(allocation[:, hh_id] .* married_female_mask)
-        
         total_age_male = sum(allocation[:, hh_id] .* married_male_mask .* age_vector)
         total_age_female = sum(allocation[:, hh_id] .* married_female_mask .* age_vector)
 
         # Soft constraint with penalty
-        @constraint(model, active_married_female * (total_age_male - total_age_female) <= 5 + penalty[hh_id])
-        @constraint(model, active_married_male * (total_age_female - total_age_male) <= 5 + penalty[hh_id])
+        @constraint(model, total_age_male - total_age_female <= 5 + penalty[hh_id])
+        @constraint(model, total_age_female - total_age_male <= 5 + penalty[hh_id])
     end
 
     # Constraints for households of size 3 or more
