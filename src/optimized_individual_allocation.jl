@@ -144,7 +144,7 @@ A tuple containing:
 - `hh_size1_indices::Vector{Int}`: Vector of indices for households of size 1.
 - `hh_size2_indices::Vector{Int}`: Vector of indices for households of size 2.
 - `hh_size3plus_indices::Vector{Int}`: Vector of indices for households of size 3 or more.
-- `hh_size3plus_capacity::Vector{Int}`: Vector indicating the household sizes for each index in `hh_size3plus_indices`.
+- `hh_capacity::Vector{Int}`: Vector indicating the household sizes for each index.
 """
 function prep_group_indices_for_hh_constraints(aggregated_households::DataFrame)
 
@@ -159,9 +159,11 @@ function prep_group_indices_for_hh_constraints(aggregated_households::DataFrame)
     # hh_size3plus_indices
     filtered_df = filter(row -> row[HOUSEHOLD_SIZE_COLUMN] >= 3, aggregated_households)
     hh_size3plus_indices = reduce(vcat, [collect(r) for r in filtered_df[!, "hh_indices"]])
-    hh_size3plus_capacity = reduce(vcat, [fill(size, length(r)) for (size, r) in zip(filtered_df[!, HOUSEHOLD_SIZE_COLUMN], filtered_df[!, "hh_indices"])])
 
-    return hh_size1_indices, hh_size2_indices, hh_size3plus_indices, hh_size3plus_capacity
+    # hh_capacity
+    hh_capacity = reduce(vcat, [fill(size, length(r)) for (size, r) in zip(aggregated_households[!, HOUSEHOLD_SIZE_COLUMN], aggregated_households[!, "hh_indices"])])
+
+    return hh_size1_indices, hh_size2_indices, hh_size3plus_indices, hh_capacity
 end
 
 
@@ -171,7 +173,7 @@ end
                                  hh_size1_indices::Vector{Int},
                                  hh_size2_indices::Vector{Int},
                                  hh_size3plus_indices::Vector{Int},
-                                 hh_size3plus_capacity::Vector{Int},
+                                 hh_capacity::Vector{Int},
                                  adult_indices::Vector{Int},
                                  married_male_indices::Vector{Int},
                                  married_female_indices::Vector{Int},
@@ -186,7 +188,7 @@ Run an optimization linear programming model to allocate individuals to househol
 - `hh_size1_indices::Vector{Int}`: Indices of households that can accommodate 1 individual.
 - `hh_size2_indices::Vector{Int}`: Indices of households that can accommodate 2 individuals.
 - `hh_size3plus_indices::Vector{Int}`: Indices of households that can accommodate 3 or more individuals.
-- `hh_size3plus_capacity::Vector{Int}`: A vector containing the capacity of households that can accommodate 3 or more individuals.
+- `hh_capacity::Vector{Int}`: A vector containing the capacity of households.
 - `adult_indices::Vector{Int}`: Indices of individuals classified as adults.
 - `married_male_indices::Vector{Int}`: Indices of married male individuals.
 - `married_female_indices::Vector{Int}`: Indices of married female individuals.
@@ -202,7 +204,7 @@ function define_and_run_optimization(aggregated_individuals::DataFrame
                                     , hh_size1_indices::Vector{Int}
                                     , hh_size2_indices::Vector{Int}
                                     , hh_size3plus_indices::Vector{Int}
-                                    , hh_size3plus_capacity::Vector{Int}
+                                    , hh_capacity::Vector{Int}
 
                                     , adult_indices::Vector{Int}
                                     , married_male_indices::Vector{Int}
@@ -211,75 +213,87 @@ function define_and_run_optimization(aggregated_individuals::DataFrame
                                     , child_indices::Vector{Int}
                                     , age_vector::Vector{Int}
                                     )
-
+    println("1")
     # Create a new optimization mode
-    model = Model(Cbc.Optimizer)
-
+    model = Model(HiGHS.Optimizer)
+    set_attribute(model, "mip_rel_gap", 0.3)
+    set_attribute(model, "mip_heuristic_effort", 0.25)
+    println("2")
     # Define decision variables: a binary allocation matrix where
     # allocation[i, j] indicates whether individual i is assigned to household j
-    @variable(model, allocation[1:sum(aggregated_individuals[!,POPULATION_COLUMN]), 1:sum(aggregated_households[!,POPULATION_COLUMN])], Bin, start = 0)
-    @variable(model, penalty[1:sum(aggregated_households[!,POPULATION_COLUMN])], lower_bound=0, start = 0)
-
+    hh_indices = 1:sum(aggregated_households[!,POPULATION_COLUMN])
+    @variable(model, allocation[1:sum(aggregated_individuals[!,POPULATION_COLUMN]), hh_indices], Bin, start = 0)
+    @variable(model, 0 <= household_inhabited[hh_indices]  <= 1, start = 0 )
+    @variable(model, 0 <= household_married_male[hh_indices]  <= 1, start = 0 )
+    @variable(model, 0 <= household_married_female[hh_indices]  <= 1, start = 0 )
+    @variable(model, male_parent_relaxation[child_indices, hh_indices], Bin)
+    @variable(model, female_parent_relaxation[child_indices, hh_indices], Bin)
+    @variable(model, penalty[hh_indices], lower_bound=0, start = 0)
+    println("3")
     # Define the objective function: maximize the total number of assigned individuals
-    @objective(model, Max, sum(allocation) - sum(penalty) ) #)
-    
+    @objective(model, Max, sum(allocation) - sum(penalty))
+    println("4")
     # Add constraints to the model
-
+    println("---------------")
     # Each individual can only be assigned to one household
     @constraint(model, [i=1:size(allocation, 1)], sum(allocation[i, j] for j in 1:size(allocation, 2)) <= 1)
-
-    # Constraints for households of size 1
-    # There can be 0 or 1 adult
-    @constraint(model, [hh_id=hh_size1_indices], sum(allocation[indv_id, hh_id] for indv_id in adult_indices) <= 1) 
-    # There can be 0 children
-    @constraint(model, [hh_id=hh_size1_indices], sum(allocation[indv_id, hh_id] for indv_id in child_indices) == 0) 
-    
-    # Constraints for households of size 2
-    # There must be at least 1 adult
-    @constraint(model, [hh_id=hh_size2_indices], sum(allocation[indv_id, hh_id] for indv_id in adult_indices) >= 1) 
-    # There must be exactly one married adult male
-    @constraint(model, [hh_id=hh_size2_indices], sum(allocation[indv_id, hh_id] for indv_id in married_male_indices) == 1) 
-    # There must be exactly one married adult female
-    @constraint(model, [hh_id=hh_size2_indices], sum(allocation[indv_id, hh_id] for indv_id in married_female_indices) == 1) 
-    # There must be 0 children
-    @constraint(model, [hh_id=hh_size2_indices], sum(allocation[indv_id, hh_id] for indv_id in child_indices) == 0)
+    println("1")
+    # Any individual added to a household makes it inhabited
+    @constraint(model, [hh_id = hh_indices], household_inhabited[hh_id] .>= allocation[:, hh_id])
+    println("2")
+    # Any household must meet its capacity
+    @constraint(model, [hh_id = hh_indices], sum(allocation[:, hh_id]) .== hh_capacity[hh_id] * household_inhabited[hh_id])
+    println("3")
+    # Any active household must have at least 1 adult
+    @constraint(model, [hh_id = hh_indices], sum(allocation[adult_indices, hh_id]) >= household_inhabited[hh_id])
+    println("4")
+    # Any household cannot have more than 1 married male
+    @constraint(model, [hh_id = hh_indices], household_married_male[hh_id] .>= allocation[married_male_indices, hh_id])
+    @constraint(model, [hh_id = hh_indices], sum(allocation[married_male_indices, hh_id]) .<= household_married_male[hh_id])
+    println("5")
+    # Any household cannot have more than 1 married female
+    @constraint(model, [hh_id = hh_indices], household_married_female[hh_id] .>= allocation[married_female_indices, hh_id])
+    @constraint(model, [hh_id = hh_indices], sum(allocation[married_female_indices, hh_id]) .<= household_married_female[hh_id])
+    println("6")
+    # Children could be only in a household that has at least one a parent
+    @constraint(model, [hh_id = hh_indices], allocation[child_indices, hh_id] .<= household_married_female[hh_id] + household_married_male[hh_id])
+    # Number of children cannot exceed hh_capacity - parents
+    @constraint(model, [hh_id = hh_indices], sum(allocation[child_indices, hh_id]) .<= hh_capacity[hh_id] - household_married_female[hh_id] - household_married_male[hh_id])
+    println("7")
     # Age difference between parents not bigger than 5 years
-    married_male_mask = zeros(Int, length(age_vector))
-    married_male_mask[married_male_indices] .= 1
-
-    married_female_mask = zeros(Int, length(age_vector))
-    married_female_mask[married_female_indices] .= 1
+    @constraint(model, [hh_id = hh_indices], sum(allocation[married_female_indices, hh_id] .* age_vector[married_female_indices]) - sum(allocation[married_male_indices, hh_id] .* age_vector[married_male_indices]) <= 5 + 100*(2 - household_married_male[hh_id] - household_married_female[hh_id] + penalty[hh_id]))
+    @constraint(model, [hh_id = hh_indices], sum(allocation[married_male_indices, hh_id] .* age_vector[married_male_indices]) - sum(allocation[married_female_indices, hh_id] .* age_vector[married_female_indices]) <= 5 + 100*(2 - household_married_male[hh_id] - household_married_female[hh_id] + penalty[hh_id]))
     
-    for hh_id in hh_size2_indices
-        total_age_male = sum(allocation[:, hh_id] .* married_male_mask .* age_vector)
-        total_age_female = sum(allocation[:, hh_id] .* married_female_mask .* age_vector)
+    # Age difference between each child and male parent (married_male_indices) is less than 40 years
+    @constraint(model, [child_id in child_indices, hh_id in hh_indices, male_parent_id in married_male_indices],
+        allocation[child_id, hh_id] * (age_vector[male_parent_id] - age_vector[child_id]) <= 10 + 100*(1-allocation[male_parent_id, hh_id] + male_parent_relaxation[child_id, hh_id]))
 
-        # Soft constraint with penalty
-        @constraint(model, total_age_male - total_age_female <= 5 + penalty[hh_id])
-        @constraint(model, total_age_female - total_age_male <= 5 + penalty[hh_id])
-    end
+    @constraint(model, [child_id in child_indices, hh_id in hh_indices, female_parent_id in married_female_indices],
+        allocation[child_id, hh_id] * (age_vector[female_parent_id] - age_vector[child_id]) <= 10 + 100*(1-allocation[female_parent_id, hh_id] + female_parent_relaxation[child_id, hh_id]))
 
-    # Constraints for households of size 3 or more
-    # There must be at least 1 adult 
-    @constraint(model, [hh_id=hh_size3plus_indices], sum(allocation[indv_id, hh_id] for indv_id in adult_indices) >= 1) 
-    # There must be at least 1 parent 
-    @constraint(model, [hh_id=hh_size3plus_indices], sum(allocation[indv_id, hh_id] for indv_id in parent_indices) >= 1) 
-    # There can be at most 1 married adult male 
-    @constraint(model, [hh_id=hh_size3plus_indices], sum(allocation[indv_id, hh_id] for indv_id in married_male_indices) <= 1) 
-    # There can be at most 1 married adult female 
-    @constraint(model, [hh_id=hh_size3plus_indices], sum(allocation[indv_id, hh_id] for indv_id in married_female_indices) <= 1) 
-    # The number of children in the household cannot exceed the household's capacity minus 2 parents
-    @constraint(model, [idx=1:length(hh_size3plus_indices)], sum(allocation[indv_id, hh_size3plus_indices[idx]] for indv_id in child_indices) <= hh_size3plus_capacity[idx] - 2)
+    # If there is only one parent then no relaxation could be applied
+    @constraint(model, [child_id in child_indices, hh_id in hh_indices],
+    male_parent_relaxation[child_id, hh_id] + female_parent_relaxation[child_id, hh_id] <= household_married_female[hh_id])
+
+    @constraint(model, [child_id in child_indices, hh_id in hh_indices],
+    male_parent_relaxation[child_id, hh_id] + female_parent_relaxation[child_id, hh_id] <= household_married_male[hh_id])
     
+
+    println("OPTIMIZATION START")
     # Optimize the model to find the best allocation of individuals to households
     optimize!(model)
     println("Objective value: ", objective_value(model))
 
     # Retrieve the allocation results from the model
     allocation_values = value.(allocation)
+    household_inhabited = value.(household_inhabited)
+    household_married_male = value.(household_married_male)
+    household_married_female = value.(household_married_female)
     penalty = value.(penalty)
+    female_parent_relaxation = value.(female_parent_relaxation)
+    male_parent_relaxation = value.(male_parent_relaxation)
 
-    return allocation_values, penalty  # Return the allocation matrix
+    return allocation_values, household_inhabited, household_married_male, household_married_female, penalty, female_parent_relaxation, male_parent_relaxation  # Return the allocation matrix
 end
 
 
@@ -347,7 +361,7 @@ function disaggr_optimized_hh(allocation_values::Matrix{Float64}, aggregated_hou
     # Disaggregate households based on allocation results
     max_household_size = maximum(aggregated_households[:, HOUSEHOLD_SIZE_COLUMN])
     household_columns = [:agg_hh_id, :head_id, :partner_id]  # Initialize with parent columns
-    for i = 1:(max_household_size-2)
+    for i = 1:(max_household_size-1)
         push!(household_columns, Symbol("child$(i)_id"))
     end
     disaggregated_households = DataFrame(id = 1:households_count)
@@ -364,12 +378,13 @@ function disaggr_optimized_hh(allocation_values::Matrix{Float64}, aggregated_hou
             aggregated_households[agg_hh_id, ID_COLUMN]
 
         # Assign parents and children
-        assigned_individuals = findall(x -> x == 1.0, allocation_values[:, household_id])
+        assigned_individuals = findall(x -> x ≈ 1.0, allocation_values[:, household_id])
         if length(assigned_individuals) == 1
             individual_id = findrow(cumulative_population_ind, assigned_individuals[1])
             disaggregated_households[household_id, :head_id] =
                 aggregated_individuals[individual_id, :id]
         elseif length(assigned_individuals) >= 2
+            println(household_id)
             parents = intersect(assigned_individuals, parent_indices)
             individual_id = findrow(cumulative_population_ind, parents[1])
             disaggregated_households[household_id, :head_id] =

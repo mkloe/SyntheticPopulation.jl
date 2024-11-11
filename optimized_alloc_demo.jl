@@ -51,19 +51,17 @@ adult_indices, married_male_indices, married_female_indices, parent_indices, chi
 #generation of dataframe of households
 aggregated_households = generate_joint_distribution(marginal_hh_size)
 aggregated_households = add_indices_range_to_hh(aggregated_households)
-hh_size1_indices, hh_size2_indices, hh_size3plus_indices, hh_size3plus_capacity = prep_group_indices_for_hh_constraints(aggregated_households);
-
-
+hh_size1_indices, hh_size2_indices, hh_size3plus_indices, hh_capacity = prep_group_indices_for_hh_constraints(aggregated_households);
 
 
 # Optimization
-allocation_values, penalty = define_and_run_optimization(aggregated_individuals
+allocation_values, household_inhabited, household_married_male, household_married_female, penalty, female_parent_relaxation, male_parent_relaxation = define_and_run_optimization(aggregated_individuals
     , aggregated_households
-
+    
     , hh_size1_indices
     , hh_size2_indices
     , hh_size3plus_indices
-    , hh_size3plus_capacity
+    , hh_capacity
 
     , adult_indices
     , married_male_indices
@@ -77,40 +75,58 @@ allocation_values, penalty = define_and_run_optimization(aggregated_individuals
     # constr with penalty 155
     
 
-    sum(allocation_values)
-
+    
+allocation_values = Matrix(allocation_values)
 disaggregated_individuals = disaggr_optimized_indiv(allocation_values, aggregated_individuals)
 disaggregated_households = disaggr_optimized_hh(allocation_values, aggregated_households, aggregated_individuals, parent_indices)
 
-# 1. Join `disaggregated_households` with `aggregated_households` to add the `hh_size` column
-hh_with_size = leftjoin(disaggregated_households, aggregated_households[:, [:id, :hh_size]], on = :agg_hh_id => :id)
 
-# 2. Filter households with `hh_size == 2`
-hh_size_2 = hh_with_size[hh_with_size.hh_size .== 2, :]
 
-# 3. Join `disaggregated_individuals` to get individual IDs within each household
-# Use `makeunique=true` to handle duplicate column names automatically
-hh_individuals = leftjoin(hh_size_2, disaggregated_individuals, on = :id => :household_id, makeunique=true)
 
-# 4. Join with `aggregated_individuals` to get head and partner details
-hh_head = leftjoin(hh_individuals, aggregated_individuals, on = :head_id => :id, makeunique=true)
-hh_partner = leftjoin(hh_head, aggregated_individuals, on = :partner_id => :id, makeunique=true)
+# Define a function to perform the join for each role (head, partner, child1, etc.)
+function join_individual_data(households_df, individuals_df, role_id::Symbol, suffix::String)
 
-# Update renaming based on confirmed column names
-rename!(hh_partner, Dict(
-    Symbol("age") => :head_age,
-    Symbol("sex") => :head_sex,
-    Symbol("age_1") => :partner_age,   # Adjust "age_2_right" if needed
-    Symbol("sex_1") => :partner_sex    # Adjust "sex_2_right" if needed
-))
+    # Perform the left join
+    join_df = leftjoin(
+        households_df,
+        individuals_df,
+        on=role_id => :id,
+        makeunique=true,
+        matchmissing = :equal
+    )
+    
+    # Rename the joined columns with suffixes for clarity
+    rename!(join_df, Dict(Symbol("maritalstatus") => Symbol("maritalstatus_$suffix"), 
+                     Symbol("income") => Symbol("income_$suffix"),
+                     Symbol("sex") => Symbol("sex_$suffix"),
+                     Symbol("age") => Symbol("age_$suffix"),
+                     Symbol("is_potential_parent") => Symbol("is_potential_parent_$suffix"),
+                     Symbol("is_potential_child") => Symbol("is_potential_child_$suffix")))
+    foreach(col -> join_df[!, col] = coalesce.(join_df[!, col], ""), names(join_df))
+    join_df[!,Symbol("attributes_$suffix")] = string.(join_df[!,Symbol("sex_$suffix")], "|", join_df[!,Symbol("age_$suffix")], "|", join_df[!,Symbol("maritalstatus_$suffix")])
+    return join_df
+end
 
-hh_partner
+# Sequentially join for each role and add relevant data
+disaggregated_households = join_individual_data(disaggregated_households, aggregated_individuals, :head_id, "head")
+disaggregated_households = join_individual_data(disaggregated_households, aggregated_individuals, :partner_id, "partner")
+disaggregated_households = join_individual_data(disaggregated_households, aggregated_individuals, :child1_id, "child1")
+disaggregated_households = join_individual_data(disaggregated_households, aggregated_individuals, :child2_id, "child2")
+disaggregated_households = join_individual_data(disaggregated_households, aggregated_individuals, :child3_id, "child3")
+disaggregated_households = join_individual_data(disaggregated_households, aggregated_individuals, :child4_id, "child4")
 
-# 5. Filter where head and partner have different sexes and age difference > 5
-age_diff_criteria = hh_partner[(abs.(hh_partner.partner_age .- hh_partner.head_age) .> 5), :]
+disaggregated_households = leftjoin(
+        disaggregated_households,
+        aggregated_households,
+        on=:agg_hh_id => :id,
+        makeunique=true,
+        matchmissing = :equal
+    )
 
-# Display households with the specified age difference
-age_diff_criteria
+report_disaggregated_households = disaggregated_households[!, ["id", "hh_size", "attributes_head", "attributes_partner", "attributes_child1", "attributes_child2", "attributes_child3", "attributes_child4"]]
+report_disaggregated_households[rand(1:nrow(report_disaggregated_households), 5),:]
+
+
 
 
 
