@@ -215,9 +215,15 @@ function define_and_run_optimization(aggregated_individuals::DataFrame
                                     )
     println("1")
     # Create a new optimization mode
+
     model = Model(HiGHS.Optimizer)
     set_attribute(model, "mip_rel_gap", 0.3)
     set_attribute(model, "mip_heuristic_effort", 0.25)
+
+    # model = Model(Cbc.Optimizer)
+    # set_attribute(model, "ratioGap", 0.15)
+    # set_attribute(model, "threads", 4)
+    # set_attribute(model, "seconds", 600.0)
     println("2")
     # Define decision variables: a binary allocation matrix where
     # allocation[i, j] indicates whether individual i is assigned to household j
