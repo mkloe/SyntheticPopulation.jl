@@ -263,14 +263,14 @@ function define_and_run_optimization(aggregated_individuals::DataFrame
     # Age difference between parents not bigger than 5 years
     @constraint(model, [hh_id = hh_indices], sum(allocation[married_female_indices, hh_id] .* age_vector[married_female_indices]) - sum(allocation[married_male_indices, hh_id] .* age_vector[married_male_indices]) <= 5 + 100*(2 - household_married_male[hh_id] - household_married_female[hh_id] + penalty[hh_id]))
     @constraint(model, [hh_id = hh_indices], sum(allocation[married_male_indices, hh_id] .* age_vector[married_male_indices]) - sum(allocation[married_female_indices, hh_id] .* age_vector[married_female_indices]) <= 5 + 100*(2 - household_married_male[hh_id] - household_married_female[hh_id] + penalty[hh_id]))
-    
+    println("8")
     # Age difference between each child and male parent (married_male_indices) is less than 40 years
     @constraint(model, [child_id in child_indices, hh_id in hh_indices, male_parent_id in married_male_indices],
         allocation[child_id, hh_id] * (age_vector[male_parent_id] - age_vector[child_id]) <= 40 + 100*(1-allocation[male_parent_id, hh_id] + male_parent_relaxation[child_id, hh_id]))
 
     @constraint(model, [child_id in child_indices, hh_id in hh_indices, female_parent_id in married_female_indices],
         allocation[child_id, hh_id] * (age_vector[female_parent_id] - age_vector[child_id]) <= 40 + 100*(1-allocation[female_parent_id, hh_id] + female_parent_relaxation[child_id, hh_id]))
-
+    println("9")
     # If there is only one parent then no relaxation could be applied
     @constraint(model, [child_id in child_indices, hh_id in hh_indices],
     male_parent_relaxation[child_id, hh_id] + female_parent_relaxation[child_id, hh_id] <= household_married_female[hh_id])
