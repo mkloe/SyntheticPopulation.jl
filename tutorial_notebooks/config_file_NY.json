@@ -1,0 +1,26 @@
+{
+    "missing_config":
+    [
+        {
+            "if":
+            {
+                "age": [2, 7, 12]
+            },
+            "then":
+            {
+                "maritalstatus": "missing"
+            }
+        },
+        {
+            "if":
+            {
+                "age": [2, 7, 12]
+            },
+            "then":
+            {
+                "income": "missing"
+            }
+        }
+    ],
+    "forced_config": "missing"
+}

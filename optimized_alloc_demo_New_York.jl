@@ -8,39 +8,83 @@ using SyntheticPopulation
 
 
 #each individual and each household represent 100.000 individuals or households
-SCALE = 0.0001 
+SCALE = 0.0001/3 
 
 #all values are based on China census data
-individual_popoulation_size = 21890000
+individual_popoulation_size = 8258035
 
 
 #individuals
-marginal_ind_age_sex = DataFrame(
-    sex = repeat(['M', 'F'], 18),
-    age = repeat(2:5:87, inner = 2), 
-    population = SCALE .* 10000 .* [52.6, 49.0, 48.5, 44.8, 33.6, 30.6, 34.6, 28.8, 71.6, 63.4, 99.6, 90.9, 130.9, 119.4, 110.8, 103.5, 83.8, 76.4, 84.2, 77.7, 84.2, 77.8, 82.8, 79.9, 67.7, 71.0, 56.9, 62.6, 31.5, 35.3, 18.5, 23.0, 15.2, 19.7, 12.5, 16.0]
-    )
+population = [
+    # male
+    227349
+    ,223900
+    ,244087
+    ,228152
+    ,237353
+    ,315374
+    ,347733
+    ,295564
+    ,270094
+    ,237024
+    ,244597
+    ,236294
+    ,246669
+    ,201415
+    ,162392
+    ,112733
+    ,68463
+    ,61740
+    # female
+    ,218215
+    ,213700
+    ,233291
+    ,222591
+    ,253345
+    ,347152
+    ,353146
+    ,304273
+    ,275160
+    ,256192
+    ,264607
+    ,268286
+    ,264165
+    ,237136
+    ,205842
+    ,160794
+    ,111421
+    ,107786
+]
 
+
+marginal_ind_age_sex = DataFrame(
+    sex = repeat(['M', 'F'], inner=18),
+    age = repeat(2:5:87, outer=2), 
+    population = SCALE * population
+    )
+    
 marginal_ind_sex_maritalstatus = DataFrame(
     sex = repeat(['M', 'F'], 4), 
     maritalstatus = repeat(["Never_married", "Married", "Divorced", "Widowed"], inner = 2), 
-    population = SCALE .* [1679, 1611, 5859, 5774, 140, 206, 128, 426] ./ 0.00082
+    population = SCALE .* [1469519, 1536292, 1515237, 1470917, 205732, 341398, 75108, 286919]
     )
+
 
 marginal_ind_income = DataFrame(
-    income = [25394, 44855, 63969, 88026, 145915], 
-    population = repeat([individual_popoulation_size * SCALE / 5], 5)
+    income = [9999, 14999, 24999, 34999, 49999, 64999, 74999, 99999, 100000], 
+    population = Int.(round.(SCALE * individual_popoulation_size .* [0.014, 0.014, 0.05, 0.093, 0.16, 0.139, 0.074, 0.144, 0.311]))
     )
 
+
 #households
-household_total_population = 8230000
+household_total_population = 3394750
 marginal_hh_size = DataFrame(
-    hh_size = [1,2,3,4,5],
-    population = Int.(round.(SCALE * household_total_population .* [0.299, 0.331, 0.217, 0.09, 0.063]))
+    hh_size = [1,2,3,4],
+    population = Int.(round.(SCALE * household_total_population .* [0.345, 0.297, 0.15, 0.209]))
     )
 
 #generation of dataframe of individuals
-aggregated_individuals = generate_joint_distribution(marginal_ind_sex_maritalstatus, marginal_ind_income, marginal_ind_age_sex, config_file = "tutorial_notebooks/config_file.json")
+aggregated_individuals = generate_joint_distribution(marginal_ind_sex_maritalstatus, marginal_ind_income, marginal_ind_age_sex, config_file = "tutorial_notebooks/config_file_NY.json")
 filter!(row -> row[SyntheticPopulation.POPULATION_COLUMN] >= 1, aggregated_individuals)
 aggregated_individuals.id = 1:nrow(aggregated_individuals)
 aggregated_individuals = add_indices_range_to_indiv(aggregated_individuals)
@@ -74,7 +118,6 @@ disaggregated_individuals = disaggr_optimized_indiv(allocation_values, aggregate
 disaggregated_households = disaggr_optimized_hh(allocation_values, aggregated_households, aggregated_individuals, parent_indices)
 
 
-
 # Define a function to perform the join for each role (head, partner, child1, etc.)
 function join_individual_data(households_df, individuals_df, role_id::Symbol, suffix::String)
 
@@ -105,7 +148,7 @@ disaggregated_households = join_individual_data(disaggregated_households, aggreg
 disaggregated_households = join_individual_data(disaggregated_households, aggregated_individuals, :child1_id, "child1")
 disaggregated_households = join_individual_data(disaggregated_households, aggregated_individuals, :child2_id, "child2")
 disaggregated_households = join_individual_data(disaggregated_households, aggregated_individuals, :child3_id, "child3")
-disaggregated_households = join_individual_data(disaggregated_households, aggregated_individuals, :child4_id, "child4")
+#disaggregated_households = join_individual_data(disaggregated_households, aggregated_individuals, :child4_id, "child4")
 
 disaggregated_households = leftjoin(
         disaggregated_households,
@@ -115,9 +158,13 @@ disaggregated_households = leftjoin(
         matchmissing = :equal
     )
 
-report_disaggregated_households = disaggregated_households[!, ["id", "hh_size", "attributes_head", "attributes_partner", "attributes_child1", "attributes_child2", "attributes_child3", "attributes_child4"]]
-report_disaggregated_households[rand(1:nrow(report_disaggregated_households), 5),:]
+report_disaggregated_households = disaggregated_households[!, ["id", "hh_size", "attributes_head", "attributes_partner", "attributes_child1", "attributes_child2", "attributes_child3"]]#, "attributes_child4"
+report_disaggregated_households[rand(1:nrow(report_disaggregated_households), 10),:]
 
+
+household_married_female[47]
+household_married_male[47]
+penalty[47]
 
 
 
