@@ -239,7 +239,7 @@ function define_and_run_optimization(aggregated_individuals::DataFrame
     println("3")
     flush(stdout)
     # Define the objective function: maximize the total number of assigned individuals
-    @objective(model, Max, sum(allocation) - sum(penalty))
+    @objective(model, Max, sum(allocation) - 10*sum(penalty) - 0.001*sum(female_parent_relaxation) - 0.001*sum(male_parent_relaxation))
     println("4")
     flush(stdout)
     # Add constraints to the model
@@ -355,7 +355,7 @@ function disaggr_optimized_indiv(allocation_values::Matrix{Float64}, aggregated_
             aggregated_individuals[agg_ind_id, :id]
 
         # Assign household ID to disaggregated individuals
-        household_id = findfirst(x -> x == 1.0, allocation_values[individual_id, :])
+        household_id = findfirst(x -> x > 0.95, allocation_values[individual_id, :])
         if household_id === nothing
             disaggregated_individuals[individual_id, :household_id] = missing
         else
@@ -406,7 +406,7 @@ function disaggr_optimized_hh(allocation_values::Matrix{Float64}, aggregated_hou
             aggregated_households[agg_hh_id, ID_COLUMN]
 
         # Assign parents and children
-        assigned_individuals = findall(x -> x ≈ 1.0, allocation_values[:, household_id])
+        assigned_individuals = findall(x -> x > 0.95, allocation_values[:, household_id])
         if length(assigned_individuals) == 1
             individual_id = findrow(cumulative_population_ind, assigned_individuals[1])
             disaggregated_households[household_id, :head_id] =

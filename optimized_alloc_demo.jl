@@ -7,6 +7,7 @@ using SyntheticPopulation
 
 
 
+
 #each individual and each household represent 100.000 individuals or households
 SCALE = 0.0001 
 
@@ -74,7 +75,6 @@ disaggregated_individuals = disaggr_optimized_indiv(allocation_values, aggregate
 disaggregated_households = disaggr_optimized_hh(allocation_values, aggregated_households, aggregated_individuals, parent_indices)
 
 
-
 # Define a function to perform the join for each role (head, partner, child1, etc.)
 function join_individual_data(households_df, individuals_df, role_id::Symbol, suffix::String)
 
@@ -116,58 +116,88 @@ disaggregated_households = leftjoin(
     )
 
 report_disaggregated_households = disaggregated_households[!, ["id", "hh_size", "attributes_head", "attributes_partner", "attributes_child1", "attributes_child2", "attributes_child3", "attributes_child4"]]
-report_disaggregated_households[rand(1:nrow(report_disaggregated_households), 5),:]
+report_disaggregated_households[rand(1:nrow(report_disaggregated_households), 10),:]
 
 
+using PyCall
+using Colors
+using Conda 
+#Conda.add("folium")
+folium = pyimport("folium")
 
 
+#areas
+URL = "https://osm-boundaries.com/Download/Submit?apiKey=2986553a70d2b1dd49788a148fcf2d22&db=osm20230102&osmIds=-2988894,-2988933,-2988895,-288600,-2988896,-2988946,-5505984,-2988897,-2988898,-2988899,-2988900,-5505985,-2988901,-2988902,-568660,-2988903&format=GeoJSON&srid=4326"
+areas = SyntheticPopulation.generate_areas_dataframe_from_url(URL)
 
-function join_and_rename!(df1::DataFrame, df2::DataFrame, column_name::Symbol)
-    df_joined = leftjoin(df1, df2, on = column_name => :id, makeunique=true, matchmissing = :notequal)
+#aggregated_areas - population referenced from https://nj.tjj.beijing.gov.cn/nj/main/2021-tjnj/zk/indexeh.htm
+aggregated_areas = copy(areas)
+aggregated_areas.:population = SCALE .* 10000 .* [56.8, 313.2, 201.9, 345.1, 34.6, 184.0, 132.4, 45.7, 52.8, 39.3, 44.1, 131.3, 199.4, 226.9, 110.6, 70.9]
+aggregated_areas.:population = round.(Int, aggregated_areas.population)
+aggregated_areas
 
-    # Rename the new columns
-    for col in names(df2)[2:end]  # Skip the id column
-        rename!(df_joined, Symbol(col) => Symbol(replace(string(column_name), "_id" => "_"*col)))
+
+rename!(disaggregated_households, Symbol("agg_hh_id") => Symbol("hh_attr_id"))
+# Create :individuals_allocated column
+disaggregated_households[:, :individuals_allocated] = map(row -> any(x != "" for x in row), 
+                                    eachrow(disaggregated_households[:, [:head_id, :partner_id, :child1_id, :child2_id, :child3_id, :child4_id]]))
+
+disaggregated_households[!, [:head_id, :partner_id, :child1_id, :child2_id, :child3_id, :child4_id, :individuals_allocated]]
+disaggregated_households = SyntheticPopulation.assign_areas_to_households!(disaggregated_households, aggregated_households, aggregated_areas)
+
+m = folium.Map(location = [disaggregated_households.lat[1], disaggregated_households.lon[1]], zoom_start=11)
+i = 1
+for area in unique(disaggregated_households.area_id)
+    colrs = distinguishable_colors(length(unique(disaggregated_households.area_id)), [RGB(1,0.6,0.5)])
+    hh_color = "#$(hex(colrs[i]))"
+    i += 1
+    area  = filter(row -> row.area_id == area, disaggregated_households)
+    for i in 1:nrow(area)
+        folium.Circle(
+            location = (area.lat[i], area.lon[i]),
+            radius = 100,
+            color = hh_color,
+            fill = false,
+            fill_color = hh_color
+        ).add_to(m)
     end
-
-    return df_joined
 end
-
-# Apply the function to each id column in df1
-id_columns = [:head_id, :partner_id, :child1_id, :child2_id, :child3_id]
-disaggregated_households_joined = disaggregated_households
-for column_name in id_columns
-    disaggregated_households_joined = join_and_rename!(disaggregated_households_joined, aggregated_individuals, column_name)
-end
+m
+m.save("map.html")
 
 
+# Internal validation
 
-print("check that there is a proper age difference between children and parents (between 20 and 40)\n")
-for parent in [:head_age, :partner_age]
-    println("PARENT")
-    for child in [:child1_age, :child2_age, :child3_age]
-        print(unique(collect(skipmissing(disaggregated_households_joined[!, parent] - disaggregated_households_joined[!, child]))))
-        print("\n")
-    end
-end
-print("\n\n")
+# Prepare df after optimization for comparison
+disaggregated_individuals_only_assigned = filter(row -> !ismissing(row.household_id), disaggregated_individuals)
+disaggregated_individuals_only_assigned = leftjoin(disaggregated_individuals_only_assigned, aggregated_individuals[:, [:id, :maritalstatus, :age, :sex, :income]], on = :agg_ind_id => :id)
+synthetic_aggregated_individuals = combine(groupby(disaggregated_individuals_only_assigned, [:maritalstatus, :age, :sex, :income]), nrow => :population)
+rename!(synthetic_aggregated_individuals, Dict(:maritalstatus => :MARITAL_STATUS, :age => :AGE, :sex => :SEX, :income => :INCOME))
 
-print("check that for all assigned individuals, the value in column :population from aggregated_individuals is larger than 1\n")
-for column in [:head_population, :partner_population, :child1_population, :child2_population, :child3_population]
-    print(unique(collect(skipmissing(disaggregated_households_joined[!, column]))))
-end
+# Prepare IPF df to comparison
+ipf_aggregated_individuals = copy(aggregated_individuals)
+rename!(ipf_aggregated_individuals, Dict(:maritalstatus => :MARITAL_STATUS, :age => :AGE, :sex => :SEX, :income => :INCOME))
 
+# Compute contingency tables for IPF and POST_OPTIMIZATION populations
+include("validation_notebooks/utils.jl")
+synthetic_age_sex, synthetic_sex_marital, synthetic_income = compute_marginals(synthetic_aggregated_individuals)
+ipf_age_sex, ipf_sex_marital, ipf_income = compute_marginals(ipf_aggregated_individuals)
 
-# check that there is a proper age difference between children and parents (between 20 and 40)
-# PARENT
-# [35, 40, 30, 25, 20, 15, 10, 0, -5, -10, -15, -20, -25, 5]
-# [35, 40, 30, 25, 20, 15, 10, 0, -5, -10, -15, -20, -25]
-# [35, 40, 30, 25, 20, 15, 10]
-# PARENT
-# [30, 35, 40]
-# [30]
-# Union{}[]
+# Validate AGE_SEX vs Synthetic
+rename!(marginal_ind_age_sex, Dict(:age => :AGE, :sex => :SEX))
+validate_table(ipf_age_sex, marginal_ind_age_sex)
+validate_table(synthetic_age_sex, marginal_ind_age_sex)
 
+# Validate MARITAL_SEX vs Synthetic
+rename!(marginal_ind_sex_maritalstatus, Dict(:maritalstatus => :MARITAL_STATUS, :sex => :SEX))
+validate_table(ipf_sex_marital, marginal_ind_sex_maritalstatus)
+validate_table(synthetic_sex_marital, marginal_ind_sex_maritalstatus)
 
-# check that for all assigned individuals, the value in column :population from aggregated_individuals is larger than 1
-# [11, 9, 5, 12, 14, 18, 16, 3, 2][2, 12, 10, 8, 5, 3, 14, 19, 16][4, 5, 1, 3, 2, 10, 9][4, 1, 5, 3, 2, 10][4, 1, 5, 3]
+# Validate INCOME vs Synthetic
+rename!(marginal_ind_income, Dict(:income => :INCOME))
+validate_table(ipf_income, marginal_ind_income)
+validate_table(synthetic_income, marginal_ind_income)
+
+sum(marginal_ind_income[!,"population"])
+sum(ipf_aggregated_individuals[!,"population"])
+sum(ipf_income[!,"population"])
