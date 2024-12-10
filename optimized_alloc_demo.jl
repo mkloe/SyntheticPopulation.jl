@@ -28,6 +28,7 @@ marginal_ind_sex_maritalstatus = DataFrame(
     population = SCALE .* [1679, 1611, 5859, 5774, 140, 206, 128, 426] ./ 0.00082
     )
 
+
 marginal_ind_income = DataFrame(
     income = [25394, 44855, 63969, 88026, 145915], 
     population = repeat([individual_popoulation_size * SCALE / 5], 5)
@@ -177,6 +178,7 @@ rename!(synthetic_aggregated_individuals, Dict(:maritalstatus => :MARITAL_STATUS
 # Prepare IPF df to comparison
 ipf_aggregated_individuals = copy(aggregated_individuals)
 rename!(ipf_aggregated_individuals, Dict(:maritalstatus => :MARITAL_STATUS, :age => :AGE, :sex => :SEX, :income => :INCOME))
+sum(ipf_aggregated_individuals[!,"population"])
 
 # Compute contingency tables for IPF and POST_OPTIMIZATION populations
 include("validation_notebooks/utils.jl")
@@ -187,17 +189,19 @@ ipf_age_sex, ipf_sex_marital, ipf_income = compute_marginals(ipf_aggregated_indi
 rename!(marginal_ind_age_sex, Dict(:age => :AGE, :sex => :SEX))
 validate_table(ipf_age_sex, marginal_ind_age_sex)
 validate_table(synthetic_age_sex, marginal_ind_age_sex)
+sum(marginal_ind_age_sex[!,"population"])
+sum(ipf_age_sex[!,"population"])
 
 # Validate MARITAL_SEX vs Synthetic
 rename!(marginal_ind_sex_maritalstatus, Dict(:maritalstatus => :MARITAL_STATUS, :sex => :SEX))
 validate_table(ipf_sex_marital, marginal_ind_sex_maritalstatus)
 validate_table(synthetic_sex_marital, marginal_ind_sex_maritalstatus)
+sum(marginal_ind_sex_maritalstatus[!,"population"])
+sum(ipf_sex_marital[!,"population"])
 
 # Validate INCOME vs Synthetic
 rename!(marginal_ind_income, Dict(:income => :INCOME))
 validate_table(ipf_income, marginal_ind_income)
 validate_table(synthetic_income, marginal_ind_income)
-
 sum(marginal_ind_income[!,"population"])
-sum(ipf_aggregated_individuals[!,"population"])
 sum(ipf_income[!,"population"])
